@@ -43,6 +43,10 @@ data class LoggedEvent(
             put("notificationId", snapshot.notificationId)
             put("tag", snapshot.tag ?: JSONObject.NULL)
             put("actionTitles", JSONArray().also { arr -> snapshot.actionTitles.forEach(arr::put) })
+            put("extraTexts", JSONArray().also { arr -> snapshot.extraTexts.forEach(arr::put) })
+            put("extrasDump", JSONArray().also { arr -> snapshot.extrasDump.forEach(arr::put) })
+            put("scrapeDiagnostics", JSONArray().also { arr -> snapshot.scrapeDiagnostics.forEach(arr::put) })
+            put("tickerText", snapshot.tickerText ?: JSONObject.NULL)
         })
     }
 
@@ -76,6 +80,16 @@ data class LoggedEvent(
                     actionTitles = s.optJSONArray("actionTitles")?.let { arr ->
                         (0 until arr.length()).map { arr.getString(it) }
                     } ?: emptyList(),
+                    extraTexts = s.optJSONArray("extraTexts")?.let { arr ->
+                        (0 until arr.length()).map { arr.getString(it) }
+                    } ?: emptyList(),
+                    extrasDump = s.optJSONArray("extrasDump")?.let { arr ->
+                        (0 until arr.length()).map { arr.getString(it) }
+                    } ?: emptyList(),
+                    scrapeDiagnostics = s.optJSONArray("scrapeDiagnostics")?.let { arr ->
+                        (0 until arr.length()).map { arr.getString(it) }
+                    } ?: emptyList(),
+                    tickerText = str("tickerText"),
                 ),
                 matched = o.getBoolean("matched"),
                 kind = if (o.isNull("kind")) null else o.getString("kind"),

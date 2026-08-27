@@ -186,4 +186,71 @@ class TimerMatcherTest {
         )
         assertEquals("Rice", match?.timerName)
     }
+
+    // ------------------------------------------------- observed: Hub Mode, real tablet
+
+    @Test
+    fun `observed - hub mode firing timer has no full screen intent and still fires`() {
+        val match = TimerMatcher.classify(
+            snap(
+                channelId = "Timers v2",
+                category = "alarm",
+                fullScreen = false,
+                ongoing = true,
+                actions = listOf("Stop", "Add 1 min"),
+                viewTexts = listOf("0:00", "Pasta"),
+            )
+        )
+        assertNotNull(match)
+        assertEquals(EventKind.TIMER, match!!.kind)
+        assertEquals("Pasta", match.timerName)
+    }
+
+    @Test
+    fun `observed - hub mode firing timer fires even when nothing could be scraped`() {
+        val match = TimerMatcher.classify(
+            snap(
+                channelId = "Timers v2",
+                category = "alarm",
+                fullScreen = false,
+                ongoing = true,
+                actions = listOf("Stop", "Add 1 min"),
+                viewTexts = emptyList(),
+            )
+        )
+        assertNotNull(match)
+        assertEquals(EventKind.TIMER, match!!.kind)
+    }
+
+    @Test
+    fun `a pausable countdown is still running, even on an alarm category`() {
+        assertNull(
+            TimerMatcher.classify(
+                snap(
+                    channelId = "Timers v2",
+                    category = "alarm",
+                    ongoing = true,
+                    actions = listOf("Pause", "Add 1 min"),
+                    viewTexts = listOf("0:09", "Pasta"),
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `regression - a clock face must not veto a timer that is ringing`() {
+        // 1.2 scraped the layout successfully for the first time, saw a clock, and
+        // suppressed every real timer. A stop button with no pause button outranks it.
+        val match = TimerMatcher.classify(
+            snap(
+                channelId = "Timers v2",
+                category = "alarm",
+                fullScreen = false,
+                actions = listOf("Stop", "Add 1 min"),
+                viewTexts = listOf("-00:14", "Bread"),
+            )
+        )
+        assertNotNull(match)
+        assertEquals("Bread", match!!.timerName)
+    }
 }

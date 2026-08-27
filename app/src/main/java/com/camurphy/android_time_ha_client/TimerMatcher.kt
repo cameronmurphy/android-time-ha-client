@@ -127,16 +127,25 @@ object TimerMatcher {
         val firingChannel = channel in FIRING_CHANNELS || channel.contains("firing")
         val donePhrase = DONE_PHRASES.firstOrNull { haystack.contains(it) }
 
-        // A live countdown re-posts constantly. Without a fired signal it is still running.
-        val runningCountdown = (s.showsChronometer || s.viewTexts.any { COUNTDOWN.matches(it) }) &&
-            !s.hasFullScreenIntent && !firingChannel && donePhrase == null
-        if (runningCountdown && !forwardEverything) return null
+        // The buttons are the most reliable signal across builds: a timer that is still
+        // counting down can be paused, one that is ringing can only be stopped. This holds
+        // where channel names and full-screen intents do not — Hub Mode posts its firing
+        // timer on a "Timers v2" channel with no full-screen intent at all.
+        val actions = s.actionTitles.joinToString(" ").lowercase()
+        val canStop = actions.contains("stop") || actions.contains("dismiss")
+        val canPause = actions.contains("pause")
+
+        // Anything that looks like it is still counting down, unless a fired signal says
+        // otherwise. Note a ringing timer often shows a clock too, counting up from zero,
+        // so a clock face alone must never veto.
+        val stillCounting = canPause || s.showsChronometer || s.viewTexts.any { COUNTDOWN.matches(it) }
 
         val reason = when {
-            firingChannel -> "posted on the \"${s.channelId}\" channel"
             s.hasFullScreenIntent -> "full-screen intent (something is ringing)"
             donePhrase != null -> "matched completion phrase \"$donePhrase\""
-            s.category == "alarm" -> "category=alarm"
+            canStop && !canPause -> "offers \"stop\" but not \"pause\", so it is ringing"
+            firingChannel && !stillCounting -> "posted on the \"${s.channelId}\" channel"
+            s.category == "alarm" && !stillCounting -> "category=alarm"
             forwardEverything -> "forward-everything enabled for ${s.packageName}"
             else -> return null
         }

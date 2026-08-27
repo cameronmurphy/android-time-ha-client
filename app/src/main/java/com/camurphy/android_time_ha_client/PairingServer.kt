@@ -2,6 +2,7 @@ package com.camurphy.android_time_ha_client
 
 import android.content.Context
 import android.util.Log
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -127,6 +128,7 @@ class PairingServer(
         method == "GET" && path == "/info" -> 200 to info()
         method == "POST" && path == "/pair" -> pair(body)
         method == "POST" && path == "/unpair" -> unpair(body)
+        method == "POST" && path == "/diagnostics" -> diagnostics(body)
         else -> 404 to error("No such endpoint")
     }
 
@@ -138,6 +140,7 @@ class PairingServer(
         put("paired", identity.isPaired)
         put("instance_name", identity.pairedInstanceName ?: JSONObject.NULL)
         put("notification_access", TimerListenerService.hasNotificationAccess(appContext))
+        put("listener_connected", TimerListenerService.connected)
     }
 
     private fun pair(body: String): Pair<Int, JSONObject> {
@@ -165,6 +168,26 @@ class PairingServer(
         identity.unpair()
         onPairingChanged()
         return 200 to info()
+    }
+
+    /**
+     * Recent notifications, for working out why something was or was not matched without
+     * needing a cable. Behind the pairing code because it returns notification content.
+     */
+    private fun diagnostics(body: String): Pair<Int, JSONObject> {
+        val json = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
+        if (json.optString("code") != identity.pairingCode) {
+            return 403 to error("Pairing code does not match")
+        }
+        val limit = json.optInt("limit", 20).coerceIn(1, 100)
+        val events = JSONArray()
+        EventLog.snapshot(appContext).take(limit).forEach { events.put(it.toJson()) }
+        return 200 to JSONObject().apply {
+            put("device", prefs.deviceName)
+            put("listener_connected", TimerListenerService.connected)
+            put("watched_packages", JSONArray().also { a -> prefs.packages.forEach(a::put) })
+            put("events", events)
+        }
     }
 
     private fun error(message: String) = JSONObject().put("error", message)
