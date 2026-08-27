@@ -31,8 +31,8 @@ android {
         applicationId = "com.camurphy.android_time_ha_client"
         minSdk = 30
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "1.6"
     }
 
     signingConfigs {

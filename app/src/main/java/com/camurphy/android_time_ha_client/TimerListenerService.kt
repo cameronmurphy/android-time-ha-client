@@ -187,11 +187,24 @@ class TimerListenerService : NotificationListenerService() {
         return snapshot.viewTexts.firstNotNullOfOrNull { TimerMatcher.parseClock(it) }?.times(1000L)
     }
 
-    private fun metricsValue(extras: android.os.Bundle): android.os.Bundle? {
+    private fun metricsValue(extras: android.os.Bundle): android.os.Bundle? =
+        metricsBundles(extras).firstNotNullOfOrNull { it.getBundle("value") }
+
+    /**
+     * The entries of a MetricStyle notification's `android.metrics` extra.
+     *
+     * Held as a List on the builds seen so far, but the framework is free to hand this back
+     * as a Parcelable array, so accept either rather than silently returning nothing.
+     */
+    private fun metricsBundles(extras: android.os.Bundle): List<android.os.Bundle> {
         @Suppress("DEPRECATION")
-        val metrics = extras.get("android.metrics") as? Array<*> ?: return null
-        return metrics.filterIsInstance<android.os.Bundle>()
-            .firstNotNullOfOrNull { it.getBundle("value") }
+        val raw = extras.get("android.metrics") ?: return emptyList()
+        val items: List<Any?> = when (raw) {
+            is List<*> -> raw
+            is Array<*> -> raw.toList()
+            else -> return emptyList()
+        }
+        return items.filterIsInstance<android.os.Bundle>()
     }
 
     /**
@@ -200,12 +213,9 @@ class TimerListenerService : NotificationListenerService() {
      * `android.metrics` holds an array of Bundles, each with a `label`. This is exact,
      * unlike reading it back out of rendered text.
      */
-    private fun metricsLabel(extras: android.os.Bundle): String? {
-        @Suppress("DEPRECATION")
-        val metrics = extras.get("android.metrics") as? Array<*> ?: return null
-        return metrics.filterIsInstance<android.os.Bundle>()
+    private fun metricsLabel(extras: android.os.Bundle): String? =
+        metricsBundles(extras)
             .firstNotNullOfOrNull { it.getString("label")?.trim()?.takeIf(String::isNotEmpty) }
-    }
 
     /**
      * The posting app's display name. Taken from the notification's own ApplicationInfo
