@@ -303,4 +303,34 @@ class TimerMatcherTest {
         assertNotNull(match)
         assertNull(match!!.timerName)
     }
+
+    // ---------------------------------------------------------------- timer length
+
+    @Test
+    fun `clock faces parse to seconds`() {
+        assertEquals(9L, TimerMatcher.parseClock("0:09"))
+        assertEquals(600L, TimerMatcher.parseClock("10:00"))
+        assertEquals(3720L, TimerMatcher.parseClock("1:02:00"))
+        // The count-up shown once a timer has gone off.
+        assertEquals(1L, TimerMatcher.parseClock("\u221200:01"))
+        assertNull(TimerMatcher.parseClock("Pasta"))
+        assertNull(TimerMatcher.parseClock("7:00 AM"))
+    }
+
+    @Test
+    fun `durations round up, because they are measured just after the timer starts`() {
+        // A ten second timer is first seen with about 9.8s left.
+        assertEquals("10 seconds", TimerMatcher.humanDuration(9_800))
+        assertEquals("10 minutes", TimerMatcher.humanDuration(599_500))
+        assertEquals("1 second", TimerMatcher.humanDuration(1_000))
+        assertEquals("1 hour", TimerMatcher.humanDuration(3_600_000))
+        assertEquals("1 hour 1 minute", TimerMatcher.humanDuration(3_660_000))
+        assertNull(TimerMatcher.humanDuration(0))
+    }
+
+    @Test
+    fun `a nearly-whole minute is treated as that minute`() {
+        // Measurement lag, not a genuine 58 second timer.
+        assertEquals("1 minute", TimerMatcher.humanDuration(58_200))
+    }
 }

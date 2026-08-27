@@ -35,6 +35,16 @@ class TimerListenerService : NotificationListenerService() {
      */
     private var recentLabel: Pair<String, Long>? = null
 
+    /**
+     * Timer label -> how long that timer runs for, and when we worked that out.
+     *
+     * The notification that fires carries no duration: by then the countdown reads zero.
+     * The running notification does, so the length is captured the moment the timer is
+     * created and held until it goes off. The longest value seen wins, since the first
+     * sighting is the closest to the full length.
+     */
+    private val timerLengths = HashMap<String, Pair<Long, Long>>()
+
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
@@ -70,8 +80,9 @@ class TimerListenerService : NotificationListenerService() {
         }
 
         // Remember any label from this package, fired or not, for the fallback below.
-        TimerMatcher.extractName(snapshot).first
-            ?.let { recentLabel = it to System.currentTimeMillis() }
+        val label = snapshot.metricsLabel ?: TimerMatcher.extractName(snapshot).first
+        label?.let { recentLabel = it to System.currentTimeMillis() }
+        recordLength(label, sbn.notification.extras, snapshot)
 
         var match = TimerMatcher.classify(snapshot, forwardEverything = prefs.forwardEverything)
         if (match != null && match.timerName == null) {
@@ -94,6 +105,14 @@ class TimerListenerService : NotificationListenerService() {
             return
         }
         lastSent[sbn.key] = match.timerName to now
+
+        // Attach the length captured while this timer was counting down.
+        val lengthKey = match.timerName ?: ""
+        val recorded = timerLengths[lengthKey] ?: timerLengths[""]
+        if (match.duration == null && recorded != null) {
+            match = match.copy(duration = TimerMatcher.humanDuration(recorded.first))
+        }
+        timerLengths.remove(lengthKey)
 
         val event = EventLog.add(this, snapshot, matched = true, kind = match.kind.wireName, timerName = match.timerName, reason = match.reason)
         if (!prefs.enabled) {
@@ -141,6 +160,38 @@ class TimerListenerService : NotificationListenerService() {
             metricsLabel = metricsLabel(extras),
             appLabel = appLabel(extras, sbn.packageName),
         )
+    }
+
+    /**
+     * Note how long a running timer has left, keeping the largest value seen for a label.
+     *
+     * Ignores anything at or past zero, which is the notification that fires.
+     */
+    private fun recordLength(label: String?, extras: android.os.Bundle, snapshot: NotificationSnapshot) {
+        val remaining = remainingMs(extras, snapshot) ?: return
+        if (remaining <= 0L) return
+        val key = label ?: ""
+        val now = System.currentTimeMillis()
+        val existing = timerLengths[key]
+        if (existing == null || remaining > existing.first) {
+            timerLengths[key] = remaining to now
+        }
+        timerLengths.entries.removeAll { now - it.value.second > LABEL_MEMORY_MS }
+    }
+
+    /** How long is left on this timer, from the metrics bundle or the rendered clock. */
+    private fun remainingMs(extras: android.os.Bundle, snapshot: NotificationSnapshot): Long? {
+        metricsValue(extras)?.getLong("zeroElapsedRealtime", 0L)?.takeIf { it > 0L }?.let {
+            return it - android.os.SystemClock.elapsedRealtime()
+        }
+        return snapshot.viewTexts.firstNotNullOfOrNull { TimerMatcher.parseClock(it) }?.times(1000L)
+    }
+
+    private fun metricsValue(extras: android.os.Bundle): android.os.Bundle? {
+        @Suppress("DEPRECATION")
+        val metrics = extras.get("android.metrics") as? Array<*> ?: return null
+        return metrics.filterIsInstance<android.os.Bundle>()
+            .firstNotNullOfOrNull { it.getBundle("value") }
     }
 
     /**

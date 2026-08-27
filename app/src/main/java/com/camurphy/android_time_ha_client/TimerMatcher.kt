@@ -250,6 +250,43 @@ object TimerMatcher {
         return Triple(null, null, duration)
     }
 
+    /** Seconds in a clock face like "0:09", "10:00" or "1:02:00", ignoring any sign. */
+    fun parseClock(text: String): Long? {
+        val trimmed = text.trim().trimStart('\u2212', '\u2013', '\u2014', '-')
+        if (!COUNTDOWN.matches(text.trim())) return null
+        val parts = trimmed.split(':').mapNotNull { it.toLongOrNull() }
+        if (parts.size != trimmed.count { it == ':' } + 1) return null
+        return when (parts.size) {
+            2 -> parts[0] * 60 + parts[1]
+            3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
+            else -> null
+        }
+    }
+
+    /**
+     * A timer's length, said the way a person would.
+     *
+     * Rounds up, because the length is measured a moment after the timer was created and is
+     * therefore always fractionally short: a ten second timer is first seen at about 9.8s.
+     */
+    fun humanDuration(milliseconds: Long): String? {
+        if (milliseconds <= 0) return null
+        var seconds = Math.ceil(milliseconds / 1000.0).toLong()
+        // Absorb the last of the measurement lag so "59 minutes" reads as "1 hour".
+        if (seconds % 60L >= 58L) seconds += 60L - (seconds % 60L)
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
+        val secs = seconds % 60
+        val parts = buildList {
+            if (hours > 0) add(plural(hours, "hour"))
+            if (minutes > 0) add(plural(minutes, "minute"))
+            if (secs > 0 && hours == 0L) add(plural(secs, "second"))
+        }
+        return parts.joinToString(" ").ifEmpty { null }
+    }
+
+    private fun plural(value: Long, unit: String) = "$value $unit" + if (value == 1L) "" else "s"
+
     private fun clean(raw: String): String {
         var out = raw
         for (pattern in BOILERPLATE) out = pattern.replace(out, " ")
