@@ -23,6 +23,8 @@ class TimerMatcherTest {
         channelId: String? = "timers",
         actions: List<String> = emptyList(),
         viewTexts: List<String> = emptyList(),
+        metricsLabel: String? = null,
+        appLabel: String? = null,
         pkg: String = "com.google.android.deskclock",
     ) = NotificationSnapshot(
         packageName = pkg,
@@ -36,6 +38,8 @@ class TimerMatcherTest {
         showsChronometer = chronometer,
         actionTitles = actions,
         viewTexts = viewTexts,
+        metricsLabel = metricsLabel,
+        appLabel = appLabel,
     )
 
     // ---------------------------------------------------------------- observed fixtures
@@ -252,5 +256,51 @@ class TimerMatcherTest {
         )
         assertNotNull(match)
         assertEquals("Bread", match!!.timerName)
+    }
+
+    // ------------------------------------- observed: "create a testing timer for 10 seconds"
+
+    /** The exact strings the Pixel Tablet sent for an Assistant-created timer. */
+    private fun hubModeTimer(metricsLabel: String?) = snap(
+        channelId = "Firing",
+        category = "alarm",
+        fullScreen = false,
+        ongoing = true,
+        actions = listOf("Stop", "Add 1 min"),
+        viewTexts = listOf("\u2022", "Clock", "testing", "\u221200:01", "testing:", "00:00"),
+        metricsLabel = metricsLabel,
+        appLabel = "Clock",
+    )
+
+    @Test
+    fun `observed - metric style label is used verbatim`() {
+        val match = TimerMatcher.classify(hubModeTimer("testing"))
+        assertNotNull(match)
+        assertEquals("testing", match!!.timerName)
+        assertEquals("metricsLabel", match.nameSource)
+    }
+
+    @Test
+    fun `observed - falls back to layout text without picking the app name`() {
+        // Older builds have no android.metrics; "Clock" is the notification header, and
+        // picking it was the bug that reported every timer as "Clock".
+        val match = TimerMatcher.classify(hubModeTimer(null))
+        assertNotNull(match)
+        assertEquals("testing", match!!.timerName)
+    }
+
+    @Test
+    fun `the posting app name is never the timer name`() {
+        val match = TimerMatcher.classify(
+            snap(
+                channelId = "Firing",
+                category = "alarm",
+                actions = listOf("Stop"),
+                viewTexts = listOf("Clock", "00:00"),
+                appLabel = "Clock",
+            )
+        )
+        assertNotNull(match)
+        assertNull(match!!.timerName)
     }
 }

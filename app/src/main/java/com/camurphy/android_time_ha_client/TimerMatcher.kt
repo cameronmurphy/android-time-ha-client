@@ -38,6 +38,13 @@ data class NotificationSnapshot(
     /** Why each notification layout yielded what it did. */
     val scrapeDiagnostics: List<String> = emptyList(),
     val tickerText: String? = null,
+    /**
+     * Label from a MetricStyle notification's `android.metrics` bundle. Newer Clock builds
+     * put the timer's name here as a real field, which beats scraping rendered text.
+     */
+    val metricsLabel: String? = null,
+    /** Display name of the posting app, so its header row is not mistaken for the label. */
+    val appLabel: String? = null,
 )
 
 /** A firing alarm or timer we intend to report. */
@@ -209,6 +216,7 @@ object TimerMatcher {
      */
     fun extractName(s: NotificationSnapshot): Triple<String?, String?, String?> {
         val candidates = listOf(
+            "metricsLabel" to s.metricsLabel,
             "title" to s.title,
             "titleBig" to s.titleBig,
             "bigText" to s.bigText,
@@ -224,6 +232,9 @@ object TimerMatcher {
         for ((field, raw) in candidates) {
             if (raw == null) continue
             val trimmed = raw.trim()
+            // A rebuilt notification includes its header, so the app's own name shows up as
+            // the first piece of text. It is never the timer's label.
+            if (s.appLabel != null && trimmed.equals(s.appLabel, ignoreCase = true)) continue
             // Clock faces and countdowns are never the name.
             if (COUNTDOWN.matches(trimmed) || WALL_CLOCK.matches(trimmed)) continue
             val cleaned = clean(trimmed)

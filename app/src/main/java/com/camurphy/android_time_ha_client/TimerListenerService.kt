@@ -138,7 +138,38 @@ class TimerListenerService : NotificationListenerService() {
             extrasDump = dumpExtras(extras),
             scrapeDiagnostics = scrape.diagnostics,
             tickerText = n.tickerText?.toString(),
+            metricsLabel = metricsLabel(extras),
+            appLabel = appLabel(extras, sbn.packageName),
         )
+    }
+
+    /**
+     * The timer's name as a real field, from a MetricStyle notification.
+     *
+     * `android.metrics` holds an array of Bundles, each with a `label`. This is exact,
+     * unlike reading it back out of rendered text.
+     */
+    private fun metricsLabel(extras: android.os.Bundle): String? {
+        @Suppress("DEPRECATION")
+        val metrics = extras.get("android.metrics") as? Array<*> ?: return null
+        return metrics.filterIsInstance<android.os.Bundle>()
+            .firstNotNullOfOrNull { it.getString("label")?.trim()?.takeIf(String::isNotEmpty) }
+    }
+
+    /**
+     * The posting app's display name. Taken from the notification's own ApplicationInfo
+     * where possible, which sidesteps package-visibility rules.
+     */
+    private fun appLabel(extras: android.os.Bundle, packageName: String): String? {
+        @Suppress("DEPRECATION")
+        val info = extras.get("android.appInfo") as? android.content.pm.ApplicationInfo
+        info?.let { runCatching { it.loadLabel(packageManager).toString() }.getOrNull() }
+            ?.let { return it }
+        return runCatching {
+            packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(packageName, 0)
+            ).toString()
+        }.getOrNull()
     }
 
     /** Extras keys we already read by name, so the dump does not repeat them. */
