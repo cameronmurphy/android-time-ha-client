@@ -44,6 +44,10 @@ object Payload {
             put("action_titles", org.json.JSONArray().also { arr -> snapshot.actionTitles.forEach(arr::put) })
             put("notification_id", snapshot.notificationId)
             put("tag", snapshot.tag ?: JSONObject.NULL)
+            put("ticker_text", snapshot.tickerText ?: JSONObject.NULL)
+            put("extra_texts", org.json.JSONArray().also { a -> snapshot.extraTexts.forEach(a::put) })
+            put("extras_dump", org.json.JSONArray().also { a -> snapshot.extrasDump.forEach(a::put) })
+            put("scrape_diagnostics", org.json.JSONArray().also { a -> snapshot.scrapeDiagnostics.forEach(a::put) })
         })
     }
 }

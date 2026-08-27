@@ -28,6 +28,13 @@ class TimerListenerService : NotificationListenerService() {
      */
     private val lastSent = HashMap<String, Pair<String?, Long>>()
 
+    /**
+     * The most recent label seen on a timer notification from a watched package, with when
+     * we saw it. Some builds put the name on the running countdown but not on the
+     * notification that fires, so this carries it across.
+     */
+    private var recentLabel: Pair<String, Long>? = null
+
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
@@ -62,7 +69,17 @@ class TimerListenerService : NotificationListenerService() {
             return
         }
 
-        val match = TimerMatcher.classify(snapshot, forwardEverything = prefs.forwardEverything)
+        // Remember any label from this package, fired or not, for the fallback below.
+        TimerMatcher.extractName(snapshot).first
+            ?.let { recentLabel = it to System.currentTimeMillis() }
+
+        var match = TimerMatcher.classify(snapshot, forwardEverything = prefs.forwardEverything)
+        if (match != null && match.timerName == null) {
+            val remembered = recentLabel
+            if (remembered != null && System.currentTimeMillis() - remembered.second < LABEL_MEMORY_MS) {
+                match = match.copy(timerName = remembered.first, nameSource = "earlier notification")
+            }
+        }
         if (match == null) {
             if (prefs.logAll) EventLog.add(this, snapshot, matched = false, kind = null, timerName = null, reason = null)
             return
@@ -94,6 +111,7 @@ class TimerListenerService : NotificationListenerService() {
     private fun snapshot(sbn: StatusBarNotification): NotificationSnapshot {
         val n = sbn.notification
         val extras = n.extras
+        val scrape = RemoteViewsScraper.scrape(this, n)
         fun cs(key: String): String? =
             extras.getCharSequence(key)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
 
@@ -115,12 +133,48 @@ class TimerListenerService : NotificationListenerService() {
             notificationId = sbn.id,
             tag = sbn.tag,
             actionTitles = n.actions?.mapNotNull { it.title?.toString() } ?: emptyList(),
-            viewTexts = RemoteViewsScraper.scrape(this, n),
+            viewTexts = scrape.texts,
+            extraTexts = extraTexts(extras),
+            extrasDump = dumpExtras(extras),
+            scrapeDiagnostics = scrape.diagnostics,
+            tickerText = n.tickerText?.toString(),
         )
     }
 
+    /** Extras keys we already read by name, so the dump does not repeat them. */
+    private val KNOWN_EXTRAS = setOf(
+        Notification.EXTRA_TITLE, Notification.EXTRA_TITLE_BIG, Notification.EXTRA_TEXT,
+        Notification.EXTRA_BIG_TEXT, Notification.EXTRA_SUB_TEXT, Notification.EXTRA_INFO_TEXT,
+        Notification.EXTRA_SUMMARY_TEXT,
+    )
+
+    /** Text from extras keys we do not know about — where a device may hide the label. */
+    private fun extraTexts(extras: android.os.Bundle): List<String> =
+        extras.keySet().orEmpty()
+            .filter { it !in KNOWN_EXTRAS }
+            .mapNotNull { key ->
+                @Suppress("DEPRECATION")
+                (extras.get(key) as? CharSequence)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+            }
+            .distinct()
+
+    private fun dumpExtras(extras: android.os.Bundle): List<String> =
+        extras.keySet().orEmpty().mapNotNull { key ->
+            @Suppress("DEPRECATION")
+            val value = extras.get(key) ?: return@mapNotNull null
+            val rendered = when (value) {
+                is CharSequence -> value.toString()
+                is Array<*> -> value.joinToString(" | ") { it?.toString().orEmpty() }
+                else -> value.toString()
+            }.trim()
+            if (rendered.isEmpty()) null else "$key=${rendered.take(160)}"
+        }
+
     companion object {
         private const val TAG = "HaTimerBridge"
+
+        /** How long a label from a running timer stays usable. Longer than any real timer. */
+        private const val LABEL_MEMORY_MS = 4 * 60 * 60 * 1000L
 
         @Volatile
         var connected = false

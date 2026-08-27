@@ -31,6 +31,13 @@ data class NotificationSnapshot(
     val actionTitles: List<String> = emptyList(),
     /** Text recovered from a custom notification layout, when the extras were empty. */
     val viewTexts: List<String> = emptyList(),
+    /** CharSequence values from extras keys we do not read by name. */
+    val extraTexts: List<String> = emptyList(),
+    /** Every extras key and value, for working out where a device hides the label. */
+    val extrasDump: List<String> = emptyList(),
+    /** Why each notification layout yielded what it did. */
+    val scrapeDiagnostics: List<String> = emptyList(),
+    val tickerText: String? = null,
 )
 
 /** A firing alarm or timer we intend to report. */
@@ -200,7 +207,9 @@ object TimerMatcher {
             "subText" to s.subText,
             "summaryText" to s.summaryText,
             "infoText" to s.infoText,
-        ) + s.viewTexts.map { "viewText" to it }
+        ) + s.viewTexts.map { "viewText" to it } +
+            listOf("tickerText" to s.tickerText) +
+            s.extraTexts.map { "extra" to it }
 
         var duration: String? = null
         for ((field, raw) in candidates) {
