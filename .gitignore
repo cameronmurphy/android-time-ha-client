@@ -1,0 +1,11 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+
+# Built artifacts — published to the server / Play Console, not tracked here
+web/*.apk
+web/*.aab
+__pycache__/
+*.pyc

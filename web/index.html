@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android Time HA Client</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.55 system-ui, -apple-system, sans-serif; max-width: 34rem;
+         margin: 3rem auto; padding: 0 1.25rem; }
+  h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+  p.sub { color: #888; margin-top: 0; }
+  a.dl { display: inline-block; margin: 1.5rem 0; padding: .8rem 1.4rem; border-radius: .5rem;
+         background: #0f4c81; color: #fff; text-decoration: none; font-weight: 600; }
+  ol { padding-left: 1.2rem; }
+  li { margin: .6rem 0; }
+  code { background: rgba(127,127,127,.18); padding: .1rem .35rem; border-radius: .25rem; }
+</style>
+</head>
+<body>
+  <h1>Android Time HA Client</h1>
+  <p class="sub">Sends finished Google Assistant / Clock timers and alarms from a tablet to Home Assistant.</p>
+
+  <a class="dl" href="android-time-ha-client-1.1.apk">Download the APK</a>
+
+  <ol>
+    <li>Open this page on the tablet and download the APK. Allow installs from your browser when Android asks.</li>
+    <li>Open the app, tap <strong>Open notification access settings</strong>, and switch it on.</li>
+    <li>In Home Assistant, go to <strong>Settings &rarr; Devices &amp; services</strong>. The tablet
+        appears as a discovered device &mdash; confirm it and enter the pairing code from the app.</li>
+    <li>Say <em>&ldquo;Hey Google, set a 5 second pasta timer&rdquo;</em> and watch the log at the
+        bottom of the app.</li>
+  </ol>
+
+  <p>Requires the <code>ha_timer_bridge</code> custom integration in Home Assistant. Timers and
+  alarms arrive as separate events, so you can notify on one without the other.</p>
+</body>
+</html>
