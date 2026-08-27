@@ -94,6 +94,27 @@ Worth recording, because it drives the detection rules. Observed on an Android 1
 | buttons | `Stop`, `Add 1 min` | `Snooze`, `Stop` | `Pause`, `Add 1 min` | `Dismiss alarm` |
 | notification id | `2147483640` | `2147483645` | `2147483641` | `1` |
 
+### Hub Mode is different again
+
+A timer set through Hub Mode, with the tablet docked, posts **only the notification that
+fires** — on a `Timers v2` channel, with no full-screen intent:
+
+| | Normal timer | Hub Mode timer |
+| --- | --- | --- |
+| countdown notification | yes, `Pause` / Add 1 min | **none** |
+| firing notification | channel `Firing` | channel `Timers v2` |
+| label | present | present |
+| length | derivable | **not derivable** |
+
+Names come through fine — an unnamed timer is labelled `Time's up`, which is Clock's
+placeholder and is stripped rather than reported.
+
+The **length cannot be recovered for Hub Mode timers**. It is measured from the countdown
+notification, and Hub Mode never posts one; the timer lives on the hub's screen instead. The
+firing notification carries `zeroElapsedRealtime`, which is when the timer reached zero, not
+how long it ran, and `progress`/`progressMax` are both `0`. Timers set the normal way still
+report their length.
+
 Two things follow from this:
 
 - **A firing timer sets none of the standard text extras.** The label only exists inside a
