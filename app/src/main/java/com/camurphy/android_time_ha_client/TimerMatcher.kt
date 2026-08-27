@@ -118,6 +118,10 @@ object TimerMatcher {
 
     private val SEPARATORS_ONLY = Regex("""^[\s:•\-–—,.·|]*$""")
 
+    /** "android.app.Notification${'$'}MetricStyle" and friends — machinery, not a label. */
+    private val CLASS_OR_PACKAGE_NAME =
+        Regex("""^[a-zA-Z_]+(\.[a-zA-Z0-9_]+){2,}([$][a-zA-Z0-9_]+)*$""")
+
     /**
      * @param forwardEverything skip the "did something fire" test and report anything from
      *   the package. The escape hatch for a device posting something unrecognised.
@@ -225,8 +229,7 @@ object TimerMatcher {
             "summaryText" to s.summaryText,
             "infoText" to s.infoText,
         ) + s.viewTexts.map { "viewText" to it } +
-            listOf("tickerText" to s.tickerText) +
-            s.extraTexts.map { "extra" to it }
+            listOf("tickerText" to s.tickerText)
 
         var duration: String? = null
         for ((field, raw) in candidates) {
@@ -235,6 +238,7 @@ object TimerMatcher {
             // A rebuilt notification includes its header, so the app's own name shows up as
             // the first piece of text. It is never the timer's label.
             if (s.appLabel != null && trimmed.equals(s.appLabel, ignoreCase = true)) continue
+            if (CLASS_OR_PACKAGE_NAME.matches(trimmed)) continue
             // Clock faces and countdowns are never the name.
             if (COUNTDOWN.matches(trimmed) || WALL_CLOCK.matches(trimmed)) continue
             val cleaned = clean(trimmed)

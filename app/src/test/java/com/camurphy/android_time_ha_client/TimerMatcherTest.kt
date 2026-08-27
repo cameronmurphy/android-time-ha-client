@@ -25,6 +25,7 @@ class TimerMatcherTest {
         viewTexts: List<String> = emptyList(),
         metricsLabel: String? = null,
         appLabel: String? = null,
+        extraTexts: List<String> = emptyList(),
         pkg: String = "com.google.android.deskclock",
     ) = NotificationSnapshot(
         packageName = pkg,
@@ -40,6 +41,7 @@ class TimerMatcherTest {
         viewTexts = viewTexts,
         metricsLabel = metricsLabel,
         appLabel = appLabel,
+        extraTexts = extraTexts,
     )
 
     // ---------------------------------------------------------------- observed fixtures
@@ -332,5 +334,62 @@ class TimerMatcherTest {
     fun `a nearly-whole minute is treated as that minute`() {
         // Measurement lag, not a genuine 58 second timer.
         assertEquals("1 minute", TimerMatcher.humanDuration(58_200))
+    }
+
+    // ------------------------------------------------- observed: unnamed Hub Mode timer
+
+    @Test
+    fun `observed - an unnamed hub mode timer reports no name`() {
+        // Clock labels an unnamed timer "Time's up". That is boilerplate, not a name, and
+        // reporting anything here produced "android.app.Notification${'$'}MetricStyle timer
+        // finished" on both phones.
+        val match = TimerMatcher.classify(
+            snap(
+                channelId = "Timers v2",
+                category = "alarm",
+                ongoing = true,
+                actions = listOf("Stop", "Add 1 min"),
+                viewTexts = listOf("\u2022", "Clock", "Time's up", "\u221200:01", "Time's up:", "00:00"),
+                metricsLabel = "Time's up",
+                appLabel = "Clock",
+                extraTexts = listOf(
+                    "android.app.Notification${'$'}MetricStyle",
+                    "androidx.core.app.NotificationCompat${'$'}MetricStyle",
+                ),
+            )
+        )
+        assertNotNull(match)
+        assertEquals(EventKind.TIMER, match!!.kind)
+        assertNull(match.timerName)
+    }
+
+    @Test
+    fun `class names are never used as a timer name`() {
+        val match = TimerMatcher.classify(
+            snap(
+                channelId = "Firing",
+                category = "alarm",
+                actions = listOf("Stop"),
+                viewTexts = listOf("com.example.some.Thing${'$'}Style"),
+            )
+        )
+        assertNotNull(match)
+        assertNull(match!!.timerName)
+    }
+
+    @Test
+    fun `a genuinely named hub mode timer still works`() {
+        val match = TimerMatcher.classify(
+            snap(
+                channelId = "Timers v2",
+                category = "alarm",
+                actions = listOf("Stop", "Add 1 min"),
+                viewTexts = listOf("\u2022", "Clock", "pasta", "00:00"),
+                metricsLabel = "pasta",
+                appLabel = "Clock",
+            )
+        )
+        assertEquals("pasta", match?.timerName)
+        assertEquals("metricsLabel", match?.nameSource)
     }
 }

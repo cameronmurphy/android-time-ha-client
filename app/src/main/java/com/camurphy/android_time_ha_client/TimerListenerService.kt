@@ -45,6 +45,9 @@ class TimerListenerService : NotificationListenerService() {
      */
     private val timerLengths = HashMap<String, Pair<Long, Long>>()
 
+    /** The most recently measured countdown, whatever it was called. */
+    private var lastLength: Pair<Long, Long>? = null
+
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
@@ -108,11 +111,14 @@ class TimerListenerService : NotificationListenerService() {
 
         // Attach the length captured while this timer was counting down.
         val lengthKey = match.timerName ?: ""
-        val recorded = timerLengths[lengthKey] ?: timerLengths[""]
+        val recorded = timerLengths[lengthKey]
+            ?: timerLengths[""]
+            ?: lastLength?.takeIf { System.currentTimeMillis() - it.second < LABEL_MEMORY_MS }
         if (match.duration == null && recorded != null) {
             match = match.copy(duration = TimerMatcher.humanDuration(recorded.first))
         }
         timerLengths.remove(lengthKey)
+        lastLength = null
 
         val event = EventLog.add(this, snapshot, matched = true, kind = match.kind.wireName, timerName = match.timerName, reason = match.reason)
         if (!prefs.enabled) {
@@ -175,6 +181,10 @@ class TimerListenerService : NotificationListenerService() {
         val existing = timerLengths[key]
         if (existing == null || remaining > existing.first) {
             timerLengths[key] = remaining to now
+        }
+        val previous = lastLength
+        if (previous == null || now - previous.second > LABEL_MEMORY_MS || remaining > previous.first) {
+            lastLength = remaining to now
         }
         timerLengths.entries.removeAll { now - it.value.second > LABEL_MEMORY_MS }
     }
