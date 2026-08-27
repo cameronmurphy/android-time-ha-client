@@ -83,7 +83,10 @@ class TimerListenerService : NotificationListenerService() {
         }
 
         // Remember any label from this package, fired or not, for the fallback below.
-        val label = snapshot.metricsLabel ?: TimerMatcher.extractName(snapshot).first
+        // This must be the extracted name, never the raw label: Clock calls an unnamed
+        // timer "Time's up", which the extractor strips to nothing, and taking the raw
+        // value here would reinstate the boilerplate it just removed.
+        val label = TimerMatcher.extractName(snapshot).first
         label?.let { recentLabel = it to System.currentTimeMillis() }
         recordLength(label, sbn.notification.extras, snapshot)
 
