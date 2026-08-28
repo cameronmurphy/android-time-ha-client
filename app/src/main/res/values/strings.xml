@@ -1,4 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Time HA Client</string>
+    <string name="app_tagline">Sends finished Google Assistant and Clock timers and alarms from this tablet to Home Assistant.</string>
+    <string name="version_line">version %1$s (build %2$d)</string>
+
+    <string name="section_pairing">Pair with Home Assistant</string>
+    <string name="paired_with">Paired with %1$s.</string>
+    <string name="not_paired">Not paired. In Home Assistant, go to Settings, then Devices &amp; services. This tablet should appear as a discovered device.</string>
+    <string name="pairing_code">Pairing code</string>
+    <string name="pairing_code_help">Home Assistant asks for this when it sets the tablet up. Only type it into your own Home Assistant.</string>
+    <string name="new_code">New code</string>
+    <string name="unpair">Unpair</string>
+    <string name="unpaired_toast">Unpaired — remove the device in Home Assistant too</string>
+
+    <string name="section_access">Notification access</string>
+    <string name="access_missing">Not granted. Nothing works until this is switched on.</string>
+    <string name="access_connected">Granted, listener connected.</string>
+    <string name="access_binding">Granted, waiting for the listener to bind.</string>
+    <string name="open_access_settings">Open notification access settings</string>
+    <string name="battery_exempt">Battery optimisation: exempt. Timers get through even off the dock.</string>
+    <string name="battery_active">Battery optimisation: active. Fine while docked, but Doze can delay events on battery.</string>
+    <string name="battery_settings">Battery optimisation settings</string>
+
+    <string name="section_options">Options</string>
+    <string name="device_name">Device name</string>
+    <string name="watched_packages">Watched packages (one per line)</string>
+    <string name="webhook_url">Webhook URL (only if Home Assistant cannot reach this tablet)</string>
+    <string name="forwarding_enabled">Forward events to Home Assistant</string>
+    <string name="log_all">Log notifications from every app</string>
+    <string name="forward_everything">Forward everything from watched packages</string>
+    <string name="save">Save</string>
+    <string name="saved">Saved</string>
+    <string name="send_test">Send test event</string>
+
+    <string name="section_log">Recent notifications</string>
+    <string name="clear">Clear</string>
+    <string name="log_empty">Nothing yet. Start a timer, then come back.</string>
+    <string name="resend">Send this to Home Assistant</string>
+    <string name="matched">MATCHED</string>
+    <string name="ignored">ignored</string>
 </resources>

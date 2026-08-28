@@ -1,6 +1,9 @@
 package com.camurphy.android_time_ha_client
 
 import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Owns the pairing server and its mDNS advertisement for the lifetime of the process.
@@ -14,9 +17,10 @@ object BridgeServer {
     private var server: PairingServer? = null
     private var advertiser: NsdAdvertiser? = null
 
-    /** Notified when Home Assistant pairs or unpairs, so the UI can refresh. */
-    @Volatile
-    var onPairingChanged: (() -> Unit)? = null
+    private val _pairingChanges = MutableStateFlow(0)
+
+    /** Increments whenever Home Assistant pairs or unpairs, so the UI can refresh. */
+    val pairingChanges: StateFlow<Int> = _pairingChanges.asStateFlow()
 
     val port: Int get() = server?.port ?: 0
     val advertisedAs: String? get() = advertiser?.registeredName
@@ -25,7 +29,7 @@ object BridgeServer {
     fun ensureRunning(context: Context) {
         if (server != null) return
         val app = context.applicationContext
-        val pairingServer = PairingServer(app) { onPairingChanged?.invoke() }
+        val pairingServer = PairingServer(app) { _pairingChanges.value++ }
         val boundPort = pairingServer.start()
         if (boundPort == 0) return
         server = pairingServer

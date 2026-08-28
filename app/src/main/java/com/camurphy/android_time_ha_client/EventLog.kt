@@ -1,6 +1,9 @@
 package com.camurphy.android_time_ha_client
 
 import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -111,13 +114,14 @@ object EventLog {
     private const val PREF_FILE = "ha_timer_bridge_log"
     private const val KEY = "events"
 
-    private val events = ArrayList<LoggedEvent>()
+    private val entries = ArrayList<LoggedEvent>()
     private var nextId = 1L
     private var loaded = false
 
-    /** Set by the UI while it is visible. */
-    @Volatile
-    var onChanged: (() -> Unit)? = null
+    private val _events = MutableStateFlow<List<LoggedEvent>>(emptyList())
+
+    /** Recent notifications, newest first. */
+    val events: StateFlow<List<LoggedEvent>> = _events.asStateFlow()
 
     @Synchronized
     fun load(context: Context) {
@@ -126,9 +130,10 @@ object EventLog {
         val raw = prefs(context).getString(KEY, null) ?: return
         runCatching {
             val arr = JSONArray(raw)
-            for (i in 0 until arr.length()) events.add(LoggedEvent.fromJson(arr.getJSONObject(i)))
+            for (i in 0 until arr.length()) entries.add(LoggedEvent.fromJson(arr.getJSONObject(i)))
         }
-        nextId = (events.maxOfOrNull { it.id } ?: 0L) + 1
+        nextId = (entries.maxOfOrNull { it.id } ?: 0L) + 1
+        publish()
     }
 
     @Synchronized
@@ -150,36 +155,40 @@ object EventLog {
             timerName = timerName,
             reason = reason,
         )
-        events.add(0, event)
-        while (events.size > MAX) events.removeAt(events.size - 1)
+        entries.add(0, event)
+        while (entries.size > MAX) entries.removeAt(entries.size - 1)
         persist(context)
-        onChanged?.invoke()
+        publish()
         return event
     }
 
     @Synchronized
     fun updateStatus(context: Context, id: Long, status: String) {
-        events.firstOrNull { it.id == id }?.deliveryStatus = status
+        entries.firstOrNull { it.id == id }?.deliveryStatus = status
         persist(context)
-        onChanged?.invoke()
+        publish()
     }
 
     @Synchronized
     fun snapshot(context: Context): List<LoggedEvent> {
         load(context)
-        return ArrayList(events)
+        return ArrayList(entries)
     }
 
     @Synchronized
     fun clear(context: Context) {
-        events.clear()
+        entries.clear()
         persist(context)
-        onChanged?.invoke()
+        publish()
+    }
+
+    private fun publish() {
+        _events.value = ArrayList(entries)
     }
 
     private fun persist(context: Context) {
         val arr = JSONArray()
-        events.forEach { arr.put(it.toJson()) }
+        entries.forEach { arr.put(it.toJson()) }
         prefs(context).edit().putString(KEY, arr.toString()).apply()
     }
 
