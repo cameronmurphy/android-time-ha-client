@@ -11,8 +11,9 @@ updates:
   # the test dependencies. Ungrouped, so a major arrives on its own — an AGP or Kotlin bump is
   # worth looking at by itself, since either can need source changes.
   #
-  # Note this does not cover the Gradle wrapper itself, which has no Dependabot ecosystem.
-  # Bump that by hand with: ./gradlew wrapper --gradle-version <version>
+  # This also covers the Gradle wrapper itself, which arrives as its own pull request.
+  # Note an AGP major can require a newer Gradle than the wrapper pins, in which case the
+  # two have to land together rather than one at a time.
   - package-ecosystem: 'gradle'
     directories:
       - '/'
