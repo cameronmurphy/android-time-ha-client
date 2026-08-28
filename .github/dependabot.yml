@@ -1,0 +1,22 @@
+version: 2
+
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 20
+
+  # The root build.gradle.kts holds the Android Gradle plugin and Kotlin versions; app/ holds
+  # the test dependencies. Ungrouped, so a major arrives on its own — an AGP or Kotlin bump is
+  # worth looking at by itself, since either can need source changes.
+  #
+  # Note this does not cover the Gradle wrapper itself, which has no Dependabot ecosystem.
+  # Bump that by hand with: ./gradlew wrapper --gradle-version <version>
+  - package-ecosystem: 'gradle'
+    directories:
+      - '/'
+      - '/app'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 20
