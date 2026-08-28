@@ -1,0 +1,116 @@
+name: Build
+
+run-name: >-
+  Build ${{ github.event.workflow_run.head_branch || github.ref_name }}
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Lint and test']
+    types: [completed]
+
+jobs:
+  build:
+    if: >-
+      ${{ !github.event.workflow_run
+      || (github.event.workflow_run.conclusion == 'success'
+      && startsWith(github.event.workflow_run.head_branch, 'v')) }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Check the version matches the tag
+        if: startsWith(github.event.workflow_run.head_branch, 'v')
+        env:
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          version=v$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          if [ "$version" != "$TAG" ]; then
+            echo "::error::app/build.gradle.kts is $version but the tag is $TAG — bump versionName and retag"
+            exit 1
+          fi
+
+      - name: Set up the JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # The keystore normally lives outside the repo on a backed-up volume; a runner gets the
+      # same material from secrets. Written under RUNNER_TEMP so it never enters the workspace
+      # and cannot be picked up by a later step that archives it.
+      - name: Prepare signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::No KEYSTORE_BASE64 secret — this build would be signed with the debug key"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          cat > "$RUNNER_TEMP/signing.properties" <<EOF
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Build
+        run: >-
+          ./gradlew :app:assembleRelease :app:bundleRelease
+          -PsigningProperties="$RUNNER_TEMP/signing.properties"
+
+      # The build falls back to the debug key when the signing config is missing, and Play
+      # Protect blocks installs signed with it. Fail here rather than publish one.
+      - name: Check it carries the release signature
+        run: |
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -r | head -1)
+          signer=$("$apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk |
+            grep -m1 'certificate DN:')
+          echo "$signer"
+          case "$signer" in
+            *'Android Debug'*)
+              echo "::error::Signed with the debug key, not the release key"
+              exit 1
+              ;;
+          esac
+
+      - name: Collect the build
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/android-time-ha-client-$version.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "dist/android-time-ha-client-$version.aab"
+          cd dist && sha256sum ./* > SHA256SUMS
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-time-ha-client
+          path: dist
+
+      # A tag can already have a release, and a run can be repeated, so create only when
+      # missing and let the upload overwrite.
+      - name: Publish release assets
+        if: startsWith(github.event.workflow_run.head_branch, 'v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --generate-notes
+          gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
