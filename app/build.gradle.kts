@@ -31,7 +31,7 @@ android {
     defaultConfig {
         applicationId = "com.camurphy.ha_android_timer_bridge"
         minSdk = 30
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 11
         versionName = "1.10"
     }
