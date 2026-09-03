@@ -152,7 +152,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun PairingSection(state: UiState, callbacks: ScreenCallbacks) {
+internal fun PairingSection(state: UiState, callbacks: ScreenCallbacks) {
     Column {
         SectionTitle(stringResource(R.string.section_pairing))
         Text(
@@ -216,7 +216,7 @@ private fun PairingSection(state: UiState, callbacks: ScreenCallbacks) {
 }
 
 @Composable
-private fun AccessSection(state: UiState, actions: ScreenActions) {
+internal fun AccessSection(state: UiState, actions: ScreenActions) {
     Column {
         SectionTitle(stringResource(R.string.section_access))
         Text(
@@ -259,7 +259,7 @@ private fun AccessSection(state: UiState, actions: ScreenActions) {
 }
 
 @Composable
-private fun OptionsSection(state: UiState, callbacks: ScreenCallbacks) {
+internal fun OptionsSection(state: UiState, callbacks: ScreenCallbacks) {
     Column {
         SectionTitle(stringResource(R.string.section_options))
 
@@ -317,7 +317,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 }
 
 @Composable
-private fun LogHeader(state: UiState, callbacks: ScreenCallbacks) {
+internal fun LogHeader(state: UiState, callbacks: ScreenCallbacks) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -341,7 +341,7 @@ private fun LogHeader(state: UiState, callbacks: ScreenCallbacks) {
 private val TIME_FORMAT = SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault())
 
 @Composable
-private fun EventRow(event: LoggedEvent, onResend: () -> Unit) {
+internal fun EventRow(event: LoggedEvent, onResend: () -> Unit) {
     val snapshot = event.snapshot
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
