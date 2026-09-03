@@ -1,6 +1,6 @@
-# Android HA Android Timer Bridge
+# HA Android Timer Bridge
 
-An Android app for a Pixel Tablet that notices when a Google Assistant / Clock **timer**
+An Android app for Android devices that listens for when a Google Assistant / Clock **timer**
 finishes or an **alarm** goes off, and pushes it to Home Assistant — plus the Home Assistant
 integration that discovers the tablet and receives those events.
 
