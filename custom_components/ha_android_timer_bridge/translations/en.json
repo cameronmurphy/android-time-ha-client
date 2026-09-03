@@ -1,0 +1,46 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Add a timer bridge",
+        "description": "Enter the address shown in the HA Android Timer Bridge app on your tablet.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      },
+      "pair": {
+        "title": "Pair with {name}",
+        "description": "Enter the pairing code shown in the HA Android Timer Bridge app on the tablet.",
+        "data": {
+          "pairing_code": "Pairing code"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the tablet. Check it is awake and on the same network.",
+      "invalid_code": "That pairing code does not match the one on the tablet.",
+      "not_a_bridge": "That address answered, but it is not running HA Android Timer Bridge.",
+      "no_internal_url": "Home Assistant has no internal URL the tablet could post to. Set one under Settings, System, Network."
+    },
+    "abort": {
+      "already_configured": "This tablet is already set up.",
+      "no_device_id": "The tablet did not identify itself properly."
+    }
+  },
+  "entity": {
+    "event": {
+      "timer": {
+        "name": "Timer",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "timer_finished": "Timer finished"
+            }
+          }
+        }
+      }
+    }
+  }
+}

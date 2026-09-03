@@ -17,7 +17,7 @@ plugins {
  * Override the location with -PsigningProperties=/path/to/file.properties.
  */
 val signingPropertiesPath: String = (project.findProperty("signingProperties") as String?)
-    ?: "/Volumes/Media/GDriveCam/keys/android-time-ha-client.properties"
+    ?: "/Volumes/Media/GDriveCam/keys/ha-android-timer-bridge.properties"
 
 val signingProperties = Properties().apply {
     val file = File(signingPropertiesPath)
@@ -25,11 +25,11 @@ val signingProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.camurphy.android_time_ha_client"
+    namespace = "com.camurphy.ha_android_timer_bridge"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.camurphy.android_time_ha_client"
+        applicationId = "com.camurphy.ha_android_timer_bridge"
         minSdk = 30
         targetSdk = 35
         versionCode = 10

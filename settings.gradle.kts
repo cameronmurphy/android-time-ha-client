@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ha-timer-bridge"
+rootProject.name = "ha-android-timer-bridge"
 include(":app")

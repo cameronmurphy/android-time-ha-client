@@ -1,11 +1,11 @@
-# Android Time HA Client
+# Android HA Android Timer Bridge
 
 An Android app for a Pixel Tablet that notices when a Google Assistant / Clock **timer**
 finishes or an **alarm** goes off, and pushes it to Home Assistant — plus the Home Assistant
 integration that discovers the tablet and receives those events.
 
-App package: `com.camurphy.android_time_ha_client`
-Home Assistant integration domain: `ha_timer_bridge`
+App package: `com.camurphy.ha_android_timer_bridge`
+Home Assistant integration domain: `ha_android_timer_bridge`
 
 ## How it works
 
@@ -13,10 +13,12 @@ Hub Mode timers have no API, but anything that rings posts a notification. The a
 `NotificationListenerService`, works out whether it was a timer or an alarm, recovers the
 label, and POSTs it to a webhook.
 
-Home Assistant finds the tablet itself: the app advertises `_hatimerbridge._tcp` over mDNS,
-the integration picks that up as a discovered device, you confirm with the code shown on the
-tablet, and Home Assistant hands the tablet the webhook to post to. Nothing is typed in
-twice, and the tablet never holds a Home Assistant token.
+Home Assistant finds the tablet itself: the app advertises `_hatimerbridge._tcp` over mDNS —
+that service name keeps the project's original spelling, because DNS-SD allows only 15
+characters and `haandroidtimerbridge` is 20 — the integration picks that up as a discovered
+device, you confirm with the code shown on the tablet, and Home Assistant hands the tablet
+the webhook to post to. Nothing is typed in twice, and the tablet never holds a Home
+Assistant token.
 
 ```
 Pixel Tablet                                Home Assistant
@@ -38,22 +40,22 @@ Each paired tablet becomes one device with four entities:
 | `sensor.<tablet>_last_timer` | Name of the most recent timer |
 | `sensor.<tablet>_last_alarm` | Name of the most recent alarm |
 
-The bus events `ha_timer_bridge_timer_finished` and `ha_timer_bridge_alarm_fired` are also
+The bus events `ha_android_timer_bridge_timer_finished` and `ha_android_timer_bridge_alarm_fired` are also
 fired, if you would rather trigger on those.
 
-A blueprint is included at `blueprints/automation/ha_timer_bridge/` for the common case of
+A blueprint is included at `blueprints/automation/ha_android_timer_bridge/` for the common case of
 notifying phones.
 
 ## Setup
 
-1. Copy `custom_components/ha_timer_bridge/` into your Home Assistant `config/` directory
+1. Copy `custom_components/ha_android_timer_bridge/` into your Home Assistant `config/` directory
    and restart. (The repo is HACS-compatible if you would rather add it that way.)
 2. Install the APK on the tablet and open the app.
 3. Tap **Open notification access settings** and switch the app on. This is the one
    permission Android will not let an app grant itself, and nothing works without it.
 4. In Home Assistant, go to Settings → Devices & services. The tablet should be waiting as a
    discovered device. Confirm it and type the pairing code from the app's screen. If mDNS
-   does not get through, use **Add integration → HA Timer Bridge** and enter the address the
+   does not get through, use **Add integration → HA Android Timer Bridge** and enter the address the
    app shows.
 5. Set a short timer and watch the log at the bottom of the app.
 
@@ -172,15 +174,15 @@ export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home
 The APK lands in `app/build/outputs/apk/release/app-release.apk`. There is no native code,
 so the single APK covers every ABI.
 
-Publish it under a **versioned filename** — `android-time-ha-client-<version>.apk`.
+Publish it under a **versioned filename** — `ha-android-timer-bridge-<version>.apk`.
 camurphy.com sits behind Cloudflare, which caches by URL, so overwriting a filename in
 place leaves the old build being served to anyone who fetched it recently.
 
 ## Things worth knowing
 
 - **The signing key must not be lost.** It lives at
-  `/Volumes/Media/GDriveCam/keys/android-time-ha-client.jks`, with its passwords in
-  `android-time-ha-client.properties` beside it, on the volume that reaches Backblaze.
+  `/Volumes/Media/GDriveCam/keys/ha-android-timer-bridge.jks`, with its passwords in
+  `ha-android-timer-bridge.properties` beside it, on the volume that reaches Backblaze.
   Android identifies an app by its signature, so if that keystore goes missing the
   installed app can never be updated in place again — only uninstalled and reinstalled,
   losing its pairing and settings. The build reads that properties file automatically;

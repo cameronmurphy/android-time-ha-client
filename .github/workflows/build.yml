@@ -93,14 +93,14 @@ jobs:
         run: |
           version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/android-time-ha-client-$version.apk"
-          cp app/build/outputs/bundle/release/app-release.aab "dist/android-time-ha-client-$version.aab"
+          cp app/build/outputs/apk/release/app-release.apk "dist/ha-android-timer-bridge-$version.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "dist/ha-android-timer-bridge-$version.aab"
           cd dist && sha256sum ./* > SHA256SUMS
 
       - name: Upload the build
         uses: actions/upload-artifact@v7
         with:
-          name: android-time-ha-client
+          name: ha-android-timer-bridge
           path: dist
 
       # A tag can already have a release, and a run can be repeated, so create only when

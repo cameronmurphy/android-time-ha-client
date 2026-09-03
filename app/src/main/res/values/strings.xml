@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Time HA Client</string>
+    <string name="app_name">HA Android Timer Bridge</string>
     <string name="app_tagline">Sends finished Google Assistant and Clock timers and alarms from this tablet to Home Assistant.</string>
     <string name="version_line">version %1$s (build %2$d)</string>
 
