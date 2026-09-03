@@ -2,6 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- To notice Wi-Fi coming back and re-advertise over mDNS. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!--
+      Android 17 gates the local network behind this, and mDNS registration is part of what
+      it gates: without it registerService throws "Missing local network permission" and the
+      tablet never appears in Home Assistant. Older releases ignore it.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
     <application
         android:allowBackup="true"

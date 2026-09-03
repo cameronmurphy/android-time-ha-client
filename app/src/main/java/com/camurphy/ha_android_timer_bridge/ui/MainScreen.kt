@@ -51,6 +51,7 @@ import java.util.Locale
 data class ScreenActions(
     val openNotificationAccessSettings: () -> Unit = {},
     val openBatterySettings: () -> Unit = {},
+    val requestLocalNetworkAccess: () -> Unit = {},
 )
 
 /**
@@ -238,6 +239,23 @@ internal fun AccessSection(state: UiState, actions: ScreenActions) {
             modifier = Modifier.padding(top = 8.dp),
         ) {
             Text(stringResource(R.string.open_access_settings))
+        }
+
+        // Android 17 gates mDNS behind the local network permission. Without it everything
+        // else looks healthy — the pairing server answers — but nothing can find the tablet.
+        if (!state.localNetworkAccess) {
+            Text(
+                text = stringResource(R.string.local_network_missing),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Button(
+                onClick = actions.requestLocalNetworkAccess,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(stringResource(R.string.grant_local_network))
+            }
         }
 
         Text(
@@ -453,6 +471,14 @@ private fun AccessSectionDeniedPreview() {
                 ScreenActions(),
             )
         }
+    }
+}
+
+@Preview(name = "Access — no local network permission", showBackground = true)
+@Composable
+private fun AccessSectionNoLocalNetworkPreview() {
+    TimeHaClientTheme {
+        Surface { AccessSection(PAIRED_STATE.copy(localNetworkAccess = false), ScreenActions()) }
     }
 }
 

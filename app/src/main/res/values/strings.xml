@@ -18,6 +18,8 @@
     <string name="access_connected">Granted, listener connected.</string>
     <string name="access_binding">Granted, waiting for the listener to bind.</string>
     <string name="open_access_settings">Open notification access settings</string>
+    <string name="local_network_missing">Local network access is not granted, so Home Assistant cannot discover this tablet.</string>
+    <string name="grant_local_network">Allow local network access</string>
     <string name="battery_exempt">Battery optimisation: exempt. Timers get through even off the dock.</string>
     <string name="battery_active">Battery optimisation: active. Fine while docked, but Doze can delay events on battery.</string>
     <string name="battery_settings">Battery optimisation settings</string>

@@ -41,6 +41,12 @@ object BridgeServer {
         advertiser = NsdAdvertiser(app) { _advertisedAs.value = it }.apply { register(boundPort) }
     }
 
+    /** Re-attempt the mDNS advertisement, after the local network permission is granted. */
+    @Synchronized
+    fun localNetworkGranted() {
+        advertiser?.grantedLocalNetwork()
+    }
+
     @Synchronized
     fun stop() {
         advertiser?.unregister()

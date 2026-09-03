@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -23,12 +24,29 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
+    /**
+     * Android 17 gates the local network, and mDNS registration with it. Ask on first run:
+     * without it Home Assistant can never discover the tablet, and the failure is otherwise
+     * invisible — the pairing server still answers, it just cannot be found.
+     */
+    private val requestLocalNetwork =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) viewModel.localNetworkGranted()
+            else viewModel.refresh()
+        }
+
+    private fun askForLocalNetwork() {
+        if (LocalNetwork.granted(this)) return
+        requestLocalNetwork.launch(LocalNetwork.PERMISSION)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // The listener service usually primes these, but the activity can be the first thing
         // to run — on a fresh install, before notification access has been granted.
         SettingsStore.start(this)
         PairingStore.start(this)
+        askForLocalNetwork()
         enableEdgeToEdge()
         setContent {
             TimeHaClientTheme {
@@ -41,6 +59,7 @@ class MainActivity : ComponentActivity() {
                         openBatterySettings = {
                             startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                         },
+                        requestLocalNetworkAccess = { askForLocalNetwork() },
                     ),
                 )
             }

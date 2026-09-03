@@ -18,6 +18,8 @@ data class UiState(
     val address: String = "",
     val advertisedAs: String? = null,
     val notificationAccess: Boolean = false,
+    /** Android 17 gates mDNS behind this; without it nothing can discover the tablet. */
+    val localNetworkAccess: Boolean = true,
     val listenerConnected: Boolean = false,
     val batteryExempt: Boolean = false,
     val deviceName: String = "",
@@ -161,6 +163,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Called once the local network permission has been granted, to advertise at last. */
+    fun localNetworkGranted() {
+        BridgeServer.localNetworkGranted()
+        refresh()
+    }
+
     fun messageShown() {
         _messages.value = null
     }
@@ -179,6 +187,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             address = "${NetworkInfo.localIpv4() ?: "unknown"}:${BridgeServer.port.takeIf { it > 0 } ?: "-"}",
             advertisedAs = BridgeServer.advertisedAs.value,
             notificationAccess = TimerListenerService.hasNotificationAccess(app),
+            localNetworkAccess = LocalNetwork.granted(app),
             listenerConnected = TimerListenerService.connected,
             batteryExempt = power?.isIgnoringBatteryOptimizations(app.packageName) == true,
             deviceName = SettingsStore.current.deviceName,

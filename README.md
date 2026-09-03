@@ -59,6 +59,17 @@ notifying phones.
    app shows.
 5. Set a short timer and watch the log at the bottom of the app.
 
+## Android 17 and the local network
+
+From Android 17, registering an mDNS service needs `android.permission.ACCESS_LOCAL_NETWORK`,
+and it is a runtime permission — the app asks on first launch. Decline it and everything still
+looks healthy from the tablet: the pairing server keeps listening and answering `/info`, so
+the only symptom is that Home Assistant never discovers the tablet. The setup screen says so
+plainly and offers the prompt again.
+
+This is worth knowing when raising `targetSdk`: the gate applies to apps that target 37, so a
+build that advertised fine can stop doing so with no other change.
+
 ## What keeps the listener running
 
 Nothing — and that is the point. `NotificationListenerService` is not started by the app;
