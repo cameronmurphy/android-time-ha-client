@@ -28,12 +28,8 @@ class TimerListenerService : NotificationListenerService() {
      */
     private val lastSent = HashMap<String, Pair<String?, Long>>()
 
-    /**
-     * The most recent label seen on a timer notification from a watched package, with when
-     * we saw it. Some builds put the name on the running countdown but not on the
-     * notification that fires, so this carries it across.
-     */
-    private var recentLabel: Pair<String, Long>? = null
+    /** The running timer's name, carried from its countdown to the notification that fires. */
+    private val labels = LabelMemory(LABEL_MEMORY_MS)
 
     /**
      * Timer label -> how long that timer runs for, and when we worked that out.
@@ -82,19 +78,26 @@ class TimerListenerService : NotificationListenerService() {
             return
         }
 
-        // Remember any label from this package, fired or not, for the fallback below.
-        // This must be the extracted name, never the raw label: Clock calls an unnamed
-        // timer "Time's up", which the extractor strips to nothing, and taking the raw
-        // value here would reinstate the boilerplate it just removed.
+        // The extracted name, never the raw label: Clock calls an unnamed timer "Time's up",
+        // which the extractor strips to nothing, and taking the raw value would reinstate the
+        // boilerplate it just removed.
         val label = TimerMatcher.extractName(snapshot).first
-        label?.let { recentLabel = it to System.currentTimeMillis() }
+
+        // Only a running countdown says what the current timer is called. Recording the
+        // firing notification here too would be worse than useless: it is the one that
+        // tends to arrive nameless, and it must not overwrite the name we are holding for
+        // it. A countdown with no name does clear what is held — that is how an unnamed
+        // timer stops inheriting the last one's name.
+        val remaining = remainingMs(sbn.notification.extras, snapshot)
+        if (remaining != null && remaining > 0L) {
+            labels.observeRunning(label, System.currentTimeMillis())
+        }
         recordLength(label, sbn.notification.extras, snapshot)
 
         var match = TimerMatcher.classify(snapshot, forwardEverything = prefs.forwardEverything)
         if (match != null && match.timerName == null) {
-            val remembered = recentLabel
-            if (remembered != null && System.currentTimeMillis() - remembered.second < LABEL_MEMORY_MS) {
-                match = match.copy(timerName = remembered.first, nameSource = "earlier notification")
+            labels.recall(System.currentTimeMillis())?.let {
+                match = match.copy(timerName = it, nameSource = "earlier notification")
             }
         }
         if (match == null) {
@@ -122,6 +125,7 @@ class TimerListenerService : NotificationListenerService() {
         }
         timerLengths.remove(lengthKey)
         lastLength = null
+        labels.clear()
 
         val event = EventLog.add(this, snapshot, matched = true, kind = match.kind.wireName, timerName = match.timerName, reason = match.reason)
         if (!prefs.enabled) {
