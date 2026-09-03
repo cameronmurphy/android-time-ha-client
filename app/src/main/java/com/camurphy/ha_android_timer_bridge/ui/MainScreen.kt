@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -30,11 +31,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.camurphy.ha_android_timer_bridge.BuildConfig
 import com.camurphy.ha_android_timer_bridge.LoggedEvent
+import com.camurphy.ha_android_timer_bridge.NotificationSnapshot
+import com.camurphy.ha_android_timer_bridge.ui.theme.TimeHaClientTheme
 import com.camurphy.ha_android_timer_bridge.MainViewModel
 import com.camurphy.ha_android_timer_bridge.R
 import com.camurphy.ha_android_timer_bridge.UiState
@@ -44,8 +48,29 @@ import java.util.Locale
 
 /** Actions the screen can trigger that need an Activity rather than the ViewModel. */
 data class ScreenActions(
-    val openNotificationAccessSettings: () -> Unit,
-    val openBatterySettings: () -> Unit,
+    val openNotificationAccessSettings: () -> Unit = {},
+    val openBatterySettings: () -> Unit = {},
+)
+
+/**
+ * What the screen can ask the app to do.
+ *
+ * Sections take this rather than the ViewModel so each one is a function of its arguments —
+ * which is what makes the previews below possible.
+ */
+data class ScreenCallbacks(
+    val onDeviceNameChange: (String) -> Unit = {},
+    val onPackagesChange: (String) -> Unit = {},
+    val onWebhookChange: (String) -> Unit = {},
+    val onForwardingChange: (Boolean) -> Unit = {},
+    val onLogAllChange: (Boolean) -> Unit = {},
+    val onForwardEverythingChange: (Boolean) -> Unit = {},
+    val onSave: () -> Unit = {},
+    val onSendTest: () -> Unit = {},
+    val onNewPairingCode: () -> Unit = {},
+    val onUnpair: () -> Unit = {},
+    val onClearLog: () -> Unit = {},
+    val onResend: (LoggedEvent) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +78,22 @@ data class ScreenActions(
 fun MainScreen(viewModel: MainViewModel, actions: ScreenActions) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val message by viewModel.messages.collectAsStateWithLifecycle()
+    val callbacks = remember(viewModel) {
+        ScreenCallbacks(
+            onDeviceNameChange = viewModel::onDeviceNameChange,
+            onPackagesChange = viewModel::onPackagesChange,
+            onWebhookChange = viewModel::onWebhookChange,
+            onForwardingChange = viewModel::onForwardingChange,
+            onLogAllChange = viewModel::onLogAllChange,
+            onForwardEverythingChange = viewModel::onForwardEverythingChange,
+            onSave = viewModel::save,
+            onSendTest = { viewModel.save(); viewModel.sendTest() },
+            onNewPairingCode = viewModel::newPairingCode,
+            onUnpair = viewModel::unpair,
+            onClearLog = viewModel::clearLog,
+            onResend = viewModel::resend,
+        )
+    }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(message) {
@@ -73,12 +114,12 @@ fun MainScreen(viewModel: MainViewModel, actions: ScreenActions) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item { Header() }
-            item { PairingSection(state, viewModel) }
+            item { PairingSection(state, callbacks) }
             item { AccessSection(state, actions) }
-            item { OptionsSection(state, viewModel) }
-            item { LogHeader(state, viewModel) }
+            item { OptionsSection(state, callbacks) }
+            item { LogHeader(state, callbacks) }
             items(state.events, key = { it.id }) { event ->
-                EventRow(event) { viewModel.resend(event) }
+                EventRow(event) { callbacks.onResend(event) }
             }
         }
     }
@@ -111,7 +152,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun PairingSection(state: UiState, viewModel: MainViewModel) {
+private fun PairingSection(state: UiState, callbacks: ScreenCallbacks) {
     Column {
         SectionTitle(stringResource(R.string.section_pairing))
         Text(
@@ -164,10 +205,10 @@ private fun PairingSection(state: UiState, viewModel: MainViewModel) {
             modifier = Modifier.padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedButton(onClick = viewModel::newPairingCode) {
+            OutlinedButton(onClick = callbacks.onNewPairingCode) {
                 Text(stringResource(R.string.new_code))
             }
-            OutlinedButton(onClick = viewModel::unpair, enabled = state.paired) {
+            OutlinedButton(onClick = callbacks.onUnpair, enabled = state.paired) {
                 Text(stringResource(R.string.unpair))
             }
         }
@@ -218,42 +259,42 @@ private fun AccessSection(state: UiState, actions: ScreenActions) {
 }
 
 @Composable
-private fun OptionsSection(state: UiState, viewModel: MainViewModel) {
+private fun OptionsSection(state: UiState, callbacks: ScreenCallbacks) {
     Column {
         SectionTitle(stringResource(R.string.section_options))
 
         OutlinedTextField(
             value = state.deviceName,
-            onValueChange = viewModel::onDeviceNameChange,
+            onValueChange = callbacks.onDeviceNameChange,
             label = { Text(stringResource(R.string.device_name)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = state.packages,
-            onValueChange = viewModel::onPackagesChange,
+            onValueChange = callbacks.onPackagesChange,
             label = { Text(stringResource(R.string.watched_packages)) },
             minLines = 3,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
         OutlinedTextField(
             value = state.webhookUrl,
-            onValueChange = viewModel::onWebhookChange,
+            onValueChange = callbacks.onWebhookChange,
             label = { Text(stringResource(R.string.webhook_url)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
 
-        SwitchRow(stringResource(R.string.forwarding_enabled), state.forwardingEnabled, viewModel::onForwardingChange)
-        SwitchRow(stringResource(R.string.log_all), state.logAll, viewModel::onLogAllChange)
-        SwitchRow(stringResource(R.string.forward_everything), state.forwardEverything, viewModel::onForwardEverythingChange)
+        SwitchRow(stringResource(R.string.forwarding_enabled), state.forwardingEnabled, callbacks.onForwardingChange)
+        SwitchRow(stringResource(R.string.log_all), state.logAll, callbacks.onLogAllChange)
+        SwitchRow(stringResource(R.string.forward_everything), state.forwardEverything, callbacks.onForwardEverythingChange)
 
         Row(
             modifier = Modifier.padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Button(onClick = viewModel::save) { Text(stringResource(R.string.save)) }
-            OutlinedButton(onClick = { viewModel.save(); viewModel.sendTest() }) {
+            Button(onClick = callbacks.onSave) { Text(stringResource(R.string.save)) }
+            OutlinedButton(onClick = callbacks.onSendTest) {
                 Text(stringResource(R.string.send_test))
             }
         }
@@ -276,7 +317,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 }
 
 @Composable
-private fun LogHeader(state: UiState, viewModel: MainViewModel) {
+private fun LogHeader(state: UiState, callbacks: ScreenCallbacks) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -284,7 +325,7 @@ private fun LogHeader(state: UiState, viewModel: MainViewModel) {
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f).padding(top = 20.dp, bottom = 4.dp),
             )
-            OutlinedButton(onClick = viewModel::clearLog) { Text(stringResource(R.string.clear)) }
+            OutlinedButton(onClick = callbacks.onClearLog) { Text(stringResource(R.string.clear)) }
         }
         if (state.events.isEmpty()) {
             Text(
@@ -337,5 +378,99 @@ private fun EventRow(event: LoggedEvent, onResend: () -> Unit) {
             Text(stringResource(R.string.resend))
         }
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Previews. The sections take state and callbacks rather than a ViewModel, so Android
+// Studio can render them without a running app — which is also the only way to see the
+// unpaired, no-access and empty-log states without putting the tablet into them.
+// ---------------------------------------------------------------------------------------
+
+private val PAIRED_STATE = UiState(
+    paired = true,
+    pairedInstance = "Home",
+    pairingCode = "417160",
+    deviceId = "dee4540d-00d6-4c9d-98d0-b5ae83fec0b9",
+    address = "192.168.0.44:8127",
+    advertisedAs = "Pixel Tablet",
+    notificationAccess = true,
+    listenerConnected = true,
+    deviceName = "Pixel Tablet",
+    packages = "com.google.android.deskclock",
+    webhookUrl = "",
+)
+
+@Preview(name = "Pairing — paired", showBackground = true)
+@Composable
+private fun PairingSectionPairedPreview() {
+    TimeHaClientTheme { Surface { PairingSection(PAIRED_STATE, ScreenCallbacks()) } }
+}
+
+@Preview(name = "Pairing — not paired", showBackground = true)
+@Composable
+private fun PairingSectionUnpairedPreview() {
+    TimeHaClientTheme {
+        Surface {
+            PairingSection(
+                PAIRED_STATE.copy(paired = false, pairedInstance = null, advertisedAs = null),
+                ScreenCallbacks(),
+            )
+        }
+    }
+}
+
+@Preview(name = "Access — granted", showBackground = true)
+@Composable
+private fun AccessSectionGrantedPreview() {
+    TimeHaClientTheme { Surface { AccessSection(PAIRED_STATE, ScreenActions()) } }
+}
+
+/** The state a new install opens in, and the one most worth getting right. */
+@Preview(name = "Access — no notification access", showBackground = true)
+@Composable
+private fun AccessSectionDeniedPreview() {
+    TimeHaClientTheme {
+        Surface {
+            AccessSection(
+                PAIRED_STATE.copy(notificationAccess = false, listenerConnected = false),
+                ScreenActions(),
+            )
+        }
+    }
+}
+
+@Preview(name = "Options", showBackground = true)
+@Composable
+private fun OptionsSectionPreview() {
+    TimeHaClientTheme { Surface { OptionsSection(PAIRED_STATE, ScreenCallbacks()) } }
+}
+
+@Preview(name = "Log — empty", showBackground = true)
+@Composable
+private fun LogHeaderEmptyPreview() {
+    TimeHaClientTheme { Surface { LogHeader(PAIRED_STATE, ScreenCallbacks()) } }
+}
+
+@Preview(name = "Log row", showBackground = true)
+@Composable
+private fun EventRowPreview() {
+    TimeHaClientTheme {
+        Surface {
+            EventRow(
+                LoggedEvent(
+                    id = 1,
+                    receivedAtMs = 0L,
+                    snapshot = NotificationSnapshot(
+                        packageName = "com.google.android.deskclock",
+                        channelId = "Timers v2",
+                    ),
+                    matched = true,
+                    kind = "timer",
+                    timerName = "chicken",
+                    reason = "matched completion phrase",
+                ).apply { deliveryStatus = "sent (HTTP 200)" },
+            ) {}
+        }
     }
 }
