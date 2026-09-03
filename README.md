@@ -139,7 +139,17 @@ whether it matched. If a finished timer shows as `ignored`:
   without waiting for a real timer.
 
 The rules live in `TimerMatcher.kt`, with the table above encoded as fixtures in
-`TimerMatcherTest.kt` — run `./gradlew :app:testDebugUnitTest`.
+`TimerMatcherTest.kt`, and the name carried from a countdown to the notification that fires
+in `LabelMemoryTest.kt`:
+
+```shell
+./gradlew :app:testDebugUnitTest      # the matcher and the label memory, on the JVM
+./gradlew :app:connectedDebugAndroidTest   # the pairing server and the screen, on a device
+```
+
+The instrumented tests need a device or emulator attached. They drive the real pairing server
+over a socket — including that a wrong pairing code is refused — which is the part no JVM test
+can reach.
 
 ## Payload
 

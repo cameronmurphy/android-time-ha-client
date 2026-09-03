@@ -98,7 +98,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     forwardEverything = current.forwardEverything,
                 )
             }
-            _messages.value = "Saved"
+            _messages.value = app.getString(R.string.saved)
         }
     }
 
@@ -113,7 +113,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             PairingStore.unpair(app)
             refresh()
-            _messages.value = "Unpaired — remove the device in Home Assistant too"
+            _messages.value = app.getString(R.string.unpaired_toast)
         }
     }
 

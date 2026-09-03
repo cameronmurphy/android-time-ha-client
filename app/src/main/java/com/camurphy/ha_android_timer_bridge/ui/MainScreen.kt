@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
@@ -338,17 +339,32 @@ internal fun LogHeader(state: UiState, callbacks: ScreenCallbacks) {
     }
 }
 
-private val TIME_FORMAT = SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault())
+/**
+ * Built per composition rather than once: a formatter cached in a static field keeps the
+ * locale that was in force at class-load, and would not follow a locale change.
+ */
+@Composable
+private fun rememberTimeFormat(): SimpleDateFormat {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(locale) { SimpleDateFormat("MMM d, HH:mm:ss", locale) }
+}
 
 @Composable
 internal fun EventRow(event: LoggedEvent, onResend: () -> Unit) {
+    val timeFormat = rememberTimeFormat()
     val snapshot = event.snapshot
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
             text = buildString {
-                append(TIME_FORMAT.format(Date(event.receivedAtMs)))
+                append(timeFormat.format(Date(event.receivedAtMs)))
                 append("  ")
-                append(if (event.matched) (event.kind ?: "matched").uppercase() else "ignored")
+                append(
+                    if (event.matched) {
+                        (event.kind ?: stringResource(R.string.matched)).uppercase()
+                    } else {
+                        stringResource(R.string.ignored)
+                    },
+                )
                 event.timerName?.let { append("  \"$it\"") }
             },
             style = MaterialTheme.typography.labelMedium,
