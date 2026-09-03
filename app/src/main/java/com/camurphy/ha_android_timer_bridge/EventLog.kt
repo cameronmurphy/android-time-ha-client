@@ -1,6 +1,17 @@
 package com.camurphy.ha_android_timer_bridge
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -108,11 +119,20 @@ data class LoggedEvent(
  * A small persisted ring buffer of recent notifications. The listener service and the UI
  * live in the same process, so a plain in-memory list with a change callback is enough.
  */
+private val Context.logDataStore: DataStore<Preferences> by preferencesDataStore("event_log")
+
 object EventLog {
 
     private const val MAX = 100
-    private const val PREF_FILE = "ha_android_timer_bridge_log"
-    private const val KEY = "events"
+
+    private val KEY = stringPreferencesKey("events")
+
+    /**
+     * Writes are launched rather than awaited: the log is a diagnostic aid, and a timer must
+     * never wait on disk to reach Home Assistant. The in-memory list is the source of truth
+     * for this process; DataStore is how it survives a restart.
+     */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val entries = ArrayList<LoggedEvent>()
     private var nextId = 1L
@@ -127,7 +147,9 @@ object EventLog {
     fun load(context: Context) {
         if (loaded) return
         loaded = true
-        val raw = prefs(context).getString(KEY, null) ?: return
+        // A blocking read, once, when the log is first touched — the UI and the listener
+        // both expect the list to be there as soon as they ask for it.
+        val raw = runBlocking { context.applicationContext.logDataStore.data.first()[KEY] } ?: return
         runCatching {
             val arr = JSONArray(raw)
             for (i in 0 until arr.length()) entries.add(LoggedEvent.fromJson(arr.getJSONObject(i)))
@@ -189,9 +211,8 @@ object EventLog {
     private fun persist(context: Context) {
         val arr = JSONArray()
         entries.forEach { arr.put(it.toJson()) }
-        prefs(context).edit().putString(KEY, arr.toString()).apply()
+        val serialised = arr.toString()
+        val store = context.applicationContext.logDataStore
+        scope.launch { store.edit { it[KEY] = serialised } }
     }
-
-    private fun prefs(context: Context) =
-        context.applicationContext.getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
 }

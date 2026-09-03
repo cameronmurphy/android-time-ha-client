@@ -31,8 +31,7 @@ data class UiState(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val prefs = Prefs(application)
-    private val identity = BridgeIdentity(application)
+    private val app get() = getApplication<Application>()
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -52,7 +51,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             BridgeServer.pairingChanges.collect {
                 refresh()
-                _messages.value = if (identity.isPaired) {
+                _messages.value = if (PairingStore.current.isPaired) {
                     "Paired with Home Assistant"
                 } else {
                     "Unpaired"
@@ -63,15 +62,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Re-reads the things that change outside this screen, such as permissions. */
     fun refresh() {
-        val app = getApplication<Application>()
         // Granted but unbound happens after an app update; this is the supported nudge.
         if (TimerListenerService.hasNotificationAccess(app) && !TimerListenerService.connected) {
             TimerListenerService.requestRebind(app)
         }
         _state.value = read().copy(
-            deviceName = _state.value.deviceName.ifEmpty { prefs.deviceName },
-            packages = _state.value.packages.ifEmpty { prefs.packagesRaw },
-            webhookUrl = _state.value.webhookUrl.ifEmpty { prefs.webhookUrl },
+            deviceName = _state.value.deviceName.ifEmpty { SettingsStore.current.deviceName },
+            packages = _state.value.packages.ifEmpty { SettingsStore.current.packagesRaw },
+            webhookUrl = _state.value.webhookUrl.ifEmpty { SettingsStore.current.webhookUrl },
         )
     }
 
@@ -89,30 +87,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun save() {
         val current = _state.value
-        prefs.deviceName = current.deviceName
-        prefs.packagesRaw = current.packages
-        prefs.webhookUrl = current.webhookUrl
-        prefs.enabled = current.forwardingEnabled
-        prefs.logAll = current.logAll
-        prefs.forwardEverything = current.forwardEverything
-        _messages.value = "Saved"
+        viewModelScope.launch {
+            SettingsStore.update(app) {
+                it.copy(
+                    deviceName = current.deviceName,
+                    packagesRaw = current.packages,
+                    webhookUrl = current.webhookUrl,
+                    enabled = current.forwardingEnabled,
+                    logAll = current.logAll,
+                    forwardEverything = current.forwardEverything,
+                )
+            }
+            _messages.value = "Saved"
+        }
     }
 
     fun newPairingCode() {
-        identity.newPairingCode()
-        refresh()
+        viewModelScope.launch {
+            PairingStore.newPairingCode(app)
+            refresh()
+        }
     }
 
     fun unpair() {
-        identity.unpair()
-        refresh()
-        _messages.value = "Unpaired — remove the device in Home Assistant too"
+        viewModelScope.launch {
+            PairingStore.unpair(app)
+            refresh()
+            _messages.value = "Unpaired — remove the device in Home Assistant too"
+        }
     }
 
     fun clearLog() = EventLog.clear(getApplication())
 
     fun sendTest() {
-        val app = getApplication<Application>()
         val snapshot = NotificationSnapshot(
             packageName = app.packageName,
             channelId = "test",
@@ -122,7 +129,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             postTimeMs = System.currentTimeMillis(),
         )
         val match = TimerMatcher.classify(snapshot)
-        val payload = Payload.build(snapshot, match, prefs.deviceName, isTest = true)
+        val payload = Payload.build(snapshot, match, SettingsStore.current.deviceName, isTest = true)
         val event = EventLog.add(
             app,
             snapshot,
@@ -140,9 +147,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Replays a logged notification, for testing the Home Assistant side. */
     fun resend(event: LoggedEvent) {
-        val app = getApplication<Application>()
         val match = TimerMatcher.classify(event.snapshot, forwardEverything = true)
-        val payload = Payload.build(event.snapshot, match, prefs.deviceName)
+        val payload = Payload.build(event.snapshot, match, SettingsStore.current.deviceName)
         viewModelScope.launch {
             val status = Delivery.send(app, payload)
             EventLog.updateStatus(app, event.id, status)
@@ -159,24 +165,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun read(): UiState {
-        val app = getApplication<Application>()
         val power = app.getSystemService(PowerManager::class.java)
         return UiState(
-            paired = identity.isPaired,
-            pairedInstance = identity.pairedInstanceName,
-            pairingCode = identity.pairingCode,
-            deviceId = identity.deviceId,
+            paired = PairingStore.current.isPaired,
+            pairedInstance = PairingStore.current.instanceName,
+            pairingCode = PairingStore.current.pairingCode,
+            deviceId = PairingStore.current.deviceId,
             address = "${NetworkInfo.localIpv4() ?: "unknown"}:${BridgeServer.port.takeIf { it > 0 } ?: "-"}",
             advertisedAs = BridgeServer.advertisedAs,
             notificationAccess = TimerListenerService.hasNotificationAccess(app),
             listenerConnected = TimerListenerService.connected,
             batteryExempt = power?.isIgnoringBatteryOptimizations(app.packageName) == true,
-            deviceName = prefs.deviceName,
-            packages = prefs.packagesRaw,
-            webhookUrl = prefs.webhookUrl,
-            forwardingEnabled = prefs.enabled,
-            logAll = prefs.logAll,
-            forwardEverything = prefs.forwardEverything,
+            deviceName = SettingsStore.current.deviceName,
+            packages = SettingsStore.current.packagesRaw,
+            webhookUrl = SettingsStore.current.webhookUrl,
+            forwardingEnabled = SettingsStore.current.enabled,
+            logAll = SettingsStore.current.logAll,
+            forwardEverything = SettingsStore.current.forwardEverything,
             events = EventLog.snapshot(app),
         )
     }

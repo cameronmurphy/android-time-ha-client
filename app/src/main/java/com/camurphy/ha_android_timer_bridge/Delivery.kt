@@ -19,8 +19,8 @@ object Delivery {
     }
 
     fun target(context: Context): String? {
-        val paired = BridgeIdentity(context).webhookUrl
+        val paired = PairingStore.current.webhookUrl
         if (!paired.isNullOrBlank()) return paired
-        return Prefs(context).webhookUrl.takeIf { it.isNotBlank() }
+        return SettingsStore.current.webhookUrl.takeIf { it.isNotBlank() }
     }
 }

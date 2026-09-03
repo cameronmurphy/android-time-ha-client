@@ -20,7 +20,6 @@ import kotlinx.coroutines.launch
  */
 class TimerListenerService : NotificationListenerService() {
 
-    private lateinit var prefs: Prefs
 
     /**
      * Scope for delivering an event, cancelled when Android unbinds the service.
@@ -58,7 +57,8 @@ class TimerListenerService : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
-        prefs = Prefs(this)
+        SettingsStore.start(this)
+        PairingStore.start(this)
         EventLog.load(this)
         // The system keeps this service bound, so it is the natural owner of the pairing
         // server: once notification access is granted the tablet stays discoverable.
@@ -88,10 +88,13 @@ class TimerListenerService : NotificationListenerService() {
         if (sbn.packageName == packageName) return
 
         val snapshot = snapshot(sbn)
-        val watched = sbn.packageName in prefs.packages
+        // One snapshot for the whole decision, so a setting changed midway cannot make
+        // the log and the forwarding disagree.
+        val settings = SettingsStore.current
+        val watched = sbn.packageName in settings.packages
 
         if (!watched) {
-            if (prefs.logAll) EventLog.add(this, snapshot, matched = false, kind = null, timerName = null, reason = null)
+            if (settings.logAll) EventLog.add(this, snapshot, matched = false, kind = null, timerName = null, reason = null)
             return
         }
 
@@ -111,14 +114,14 @@ class TimerListenerService : NotificationListenerService() {
         }
         recordLength(label, sbn.notification.extras, snapshot)
 
-        var match = TimerMatcher.classify(snapshot, forwardEverything = prefs.forwardEverything)
+        var match = TimerMatcher.classify(snapshot, forwardEverything = settings.forwardEverything)
         if (match != null && match.timerName == null) {
             labels.recall(System.currentTimeMillis())?.let {
                 match = match.copy(timerName = it, nameSource = "earlier notification")
             }
         }
         if (match == null) {
-            if (prefs.logAll) EventLog.add(this, snapshot, matched = false, kind = null, timerName = null, reason = null)
+            if (settings.logAll) EventLog.add(this, snapshot, matched = false, kind = null, timerName = null, reason = null)
             return
         }
 
@@ -126,7 +129,7 @@ class TimerListenerService : NotificationListenerService() {
         val previous = lastSent[sbn.key]
         if (previous != null &&
             previous.first == match.timerName &&
-            now - previous.second < prefs.dedupeWindowMs
+            now - previous.second < settings.dedupeWindowMs
         ) {
             return
         }
@@ -145,13 +148,13 @@ class TimerListenerService : NotificationListenerService() {
         labels.clear()
 
         val event = EventLog.add(this, snapshot, matched = true, kind = match.kind.wireName, timerName = match.timerName, reason = match.reason)
-        if (!prefs.enabled) {
+        if (!settings.enabled) {
             EventLog.updateStatus(this, event.id, "not sent: forwarding is off")
             return
         }
 
         Log.i(TAG, "${match.kind.wireName}: name=${match.timerName} reason=${match.reason} kind=${match.kindReason}")
-        val payload = Payload.build(snapshot, match, prefs.deviceName)
+        val payload = Payload.build(snapshot, match, settings.deviceName)
         scope.launch {
             val status = Delivery.send(this@TimerListenerService, payload)
             EventLog.updateStatus(this@TimerListenerService, event.id, status)

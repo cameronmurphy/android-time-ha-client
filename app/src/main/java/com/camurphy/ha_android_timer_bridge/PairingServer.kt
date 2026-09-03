@@ -32,8 +32,6 @@ class PairingServer(
 ) {
 
     private val appContext = context.applicationContext
-    private val identity = BridgeIdentity(appContext)
-    private val prefs = Prefs(appContext)
     /**
      * Scope for the accept loop and each connection it hands off.
      *
@@ -97,7 +95,7 @@ class PairingServer(
         }
     }
 
-    private fun handle(client: Socket) {
+    private suspend fun handle(client: Socket) {
         client.use {
             it.soTimeout = SOCKET_TIMEOUT_MS
             runCatching {
@@ -136,7 +134,7 @@ class PairingServer(
         }
     }
 
-    private fun route(method: String, path: String, body: String): Pair<Int, JSONObject> = when {
+    private suspend fun route(method: String, path: String, body: String): Pair<Int, JSONObject> = when {
         method == "GET" && path == "/info" -> 200 to info()
         method == "POST" && path == "/pair" -> pair(body)
         method == "POST" && path == "/unpair" -> unpair(body)
@@ -146,38 +144,38 @@ class PairingServer(
 
     private fun info(): JSONObject = JSONObject().apply {
         put("app", "ha-android-timer-bridge")
-        put("id", identity.deviceId)
-        put("device", prefs.deviceName)
+        put("id", PairingStore.current.deviceId)
+        put("device", SettingsStore.current.deviceName)
         put("version", BuildConfig.VERSION_NAME)
-        put("paired", identity.isPaired)
-        put("instance_name", identity.pairedInstanceName ?: JSONObject.NULL)
+        put("paired", PairingStore.current.isPaired)
+        put("instance_name", PairingStore.current.instanceName ?: JSONObject.NULL)
         put("notification_access", TimerListenerService.hasNotificationAccess(appContext))
         put("listener_connected", TimerListenerService.connected)
     }
 
-    private fun pair(body: String): Pair<Int, JSONObject> {
+    private suspend fun pair(body: String): Pair<Int, JSONObject> {
         val json = runCatching { JSONObject(body) }.getOrElse {
             return 400 to error("Body must be JSON")
         }
-        if (json.optString("code") != identity.pairingCode) {
+        if (json.optString("code") != PairingStore.current.pairingCode) {
             Log.w(TAG, "pairing rejected: wrong code")
             return 403 to error("Pairing code does not match the one shown on the tablet")
         }
         val webhook = json.optString("webhook_url").takeIf { it.isNotBlank() }
             ?: return 400 to error("webhook_url is required")
 
-        identity.pair(webhook, json.optString("instance_name").takeIf { it.isNotBlank() })
+        PairingStore.pair(appContext, webhook, json.optString("instance_name").takeIf { it.isNotBlank() })
         onPairingChanged()
         Log.i(TAG, "paired with ${json.optString("instance_name")}")
         return 200 to info()
     }
 
-    private fun unpair(body: String): Pair<Int, JSONObject> {
+    private suspend fun unpair(body: String): Pair<Int, JSONObject> {
         val json = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
-        if (json.optString("code") != identity.pairingCode) {
+        if (json.optString("code") != PairingStore.current.pairingCode) {
             return 403 to error("Pairing code does not match")
         }
-        identity.unpair()
+        PairingStore.unpair(appContext)
         onPairingChanged()
         return 200 to info()
     }
@@ -188,16 +186,16 @@ class PairingServer(
      */
     private fun diagnostics(body: String): Pair<Int, JSONObject> {
         val json = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
-        if (json.optString("code") != identity.pairingCode) {
+        if (json.optString("code") != PairingStore.current.pairingCode) {
             return 403 to error("Pairing code does not match")
         }
         val limit = json.optInt("limit", 20).coerceIn(1, 100)
         val events = JSONArray()
         EventLog.snapshot(appContext).take(limit).forEach { events.put(it.toJson()) }
         return 200 to JSONObject().apply {
-            put("device", prefs.deviceName)
+            put("device", SettingsStore.current.deviceName)
             put("listener_connected", TimerListenerService.connected)
-            put("watched_packages", JSONArray().also { a -> prefs.packages.forEach(a::put) })
+            put("watched_packages", JSONArray().also { a -> SettingsStore.current.packages.forEach(a::put) })
             put("events", events)
         }
     }

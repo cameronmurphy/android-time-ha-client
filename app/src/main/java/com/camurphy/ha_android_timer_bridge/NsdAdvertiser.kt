@@ -14,7 +14,6 @@ class NsdAdvertiser(context: Context) {
 
     private val appContext = context.applicationContext
     private val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
-    private val identity = BridgeIdentity(appContext)
 
     private var listener: NsdManager.RegistrationListener? = null
 
@@ -27,11 +26,11 @@ class NsdAdvertiser(context: Context) {
         if (listener != null || port <= 0) return
 
         val info = NsdServiceInfo().apply {
-            serviceName = Prefs(appContext).deviceName.take(SERVICE_NAME_LIMIT)
+            serviceName = SettingsStore.current.deviceName.take(SERVICE_NAME_LIMIT)
             serviceType = SERVICE_TYPE
             setPort(port)
-            setAttribute("id", identity.deviceId)
-            setAttribute("device", Prefs(appContext).deviceName)
+            setAttribute("id", PairingStore.current.deviceId)
+            setAttribute("device", SettingsStore.current.deviceName)
             setAttribute("version", BuildConfig.VERSION_NAME)
         }
 

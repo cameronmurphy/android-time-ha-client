@@ -25,6 +25,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The listener service usually primes these, but the activity can be the first thing
+        // to run — on a fresh install, before notification access has been granted.
+        SettingsStore.start(this)
+        PairingStore.start(this)
         enableEdgeToEdge()
         setContent {
             TimeHaClientTheme {
