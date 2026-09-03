@@ -49,6 +49,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             EventLog.events.collect { events -> _state.value = _state.value.copy(events = events) }
         }
         viewModelScope.launch {
+            BridgeServer.advertisedAs.collect { name ->
+                _state.value = _state.value.copy(advertisedAs = name)
+            }
+        }
+        viewModelScope.launch {
             BridgeServer.pairingChanges.collect {
                 refresh()
                 _messages.value = if (PairingStore.current.isPaired) {
@@ -172,7 +177,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             pairingCode = PairingStore.current.pairingCode,
             deviceId = PairingStore.current.deviceId,
             address = "${NetworkInfo.localIpv4() ?: "unknown"}:${BridgeServer.port.takeIf { it > 0 } ?: "-"}",
-            advertisedAs = BridgeServer.advertisedAs,
+            advertisedAs = BridgeServer.advertisedAs.value,
             notificationAccess = TimerListenerService.hasNotificationAccess(app),
             listenerConnected = TimerListenerService.connected,
             batteryExempt = power?.isIgnoringBatteryOptimizations(app.packageName) == true,

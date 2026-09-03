@@ -10,7 +10,7 @@ import android.util.Log
  * Assistant integration watches for. The TXT record carries enough for Home Assistant to
  * name the discovered device and give the config entry a stable unique id.
  */
-class NsdAdvertiser(context: Context) {
+class NsdAdvertiser(context: Context, private val onNameChanged: (String?) -> Unit = {}) {
 
     private val appContext = context.applicationContext
     private val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
@@ -19,7 +19,12 @@ class NsdAdvertiser(context: Context) {
 
     @Volatile
     var registeredName: String? = null
-        private set
+        private set(value) {
+            field = value
+            // Registration is asynchronous, so the name arrives well after register()
+            // returns. Report it rather than leaving the UI on whatever it read first.
+            onNameChanged(value)
+        }
 
     @Synchronized
     fun register(port: Int) {

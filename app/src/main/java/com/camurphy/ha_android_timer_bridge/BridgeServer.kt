@@ -23,7 +23,12 @@ object BridgeServer {
     val pairingChanges: StateFlow<Int> = _pairingChanges.asStateFlow()
 
     val port: Int get() = server?.port ?: 0
-    val advertisedAs: String? get() = advertiser?.registeredName
+
+    private val _advertisedAs = MutableStateFlow<String?>(null)
+
+    /** The mDNS name currently advertised, or null. A flow because registration completes
+     * asynchronously, long after the screen first reads it. */
+    val advertisedAs: StateFlow<String?> = _advertisedAs.asStateFlow()
 
     @Synchronized
     fun ensureRunning(context: Context) {
@@ -33,7 +38,7 @@ object BridgeServer {
         val boundPort = pairingServer.start()
         if (boundPort == 0) return
         server = pairingServer
-        advertiser = NsdAdvertiser(app).apply { register(boundPort) }
+        advertiser = NsdAdvertiser(app) { _advertisedAs.value = it }.apply { register(boundPort) }
     }
 
     @Synchronized
@@ -42,5 +47,6 @@ object BridgeServer {
         server?.stop()
         advertiser = null
         server = null
+        _advertisedAs.value = null
     }
 }
