@@ -2,6 +2,11 @@ package com.camurphy.ha_android_timer_bridge
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -10,7 +15,6 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
-import java.util.concurrent.Executors
 
 /**
  * A very small HTTP server so Home Assistant can find and pair with this tablet.
@@ -30,9 +34,14 @@ class PairingServer(
     private val appContext = context.applicationContext
     private val identity = BridgeIdentity(appContext)
     private val prefs = Prefs(appContext)
-    private val workers = Executors.newCachedThreadPool { r ->
-        Thread(r, "pair-conn").apply { isDaemon = true }
-    }
+    /**
+     * Scope for the accept loop and each connection it hands off.
+     *
+     * The IO dispatcher is the point: accept() and the per-connection reads are blocking
+     * socket calls, and IO is the dispatcher sized for threads that sit waiting. A
+     * SupervisorJob keeps one malformed request from cancelling the accept loop.
+     */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
     private var serverSocket: ServerSocket? = null
@@ -48,7 +57,7 @@ class PairingServer(
         val socket = bind() ?: return 0
         serverSocket = socket
         port = socket.localPort
-        Thread({ acceptLoop(socket) }, "pair-accept").apply { isDaemon = true }.start()
+        scope.launch { acceptLoop(socket) }
         Log.i(TAG, "pairing server listening on $port")
         return port
     }
@@ -58,6 +67,9 @@ class PairingServer(
         runCatching { serverSocket?.close() }
         serverSocket = null
         port = 0
+        // Cancel what is running, not the scope itself: start() and stop() are a matching
+        // pair, and a cancelled scope would leave the object unable to start again.
+        scope.coroutineContext.cancelChildren()
     }
 
     /** Prefer a predictable port, but never refuse to start because it is taken. */
@@ -81,7 +93,7 @@ class PairingServer(
                 if (!socket.isClosed) Log.w(TAG, "accept failed: ${e.message}")
                 return
             }
-            workers.execute { handle(client) }
+            scope.launch { handle(client) }
         }
     }
 

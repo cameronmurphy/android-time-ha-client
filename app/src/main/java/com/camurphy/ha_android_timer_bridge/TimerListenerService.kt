@@ -7,6 +7,10 @@ import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * Watches the notification shade for a timer going off and forwards it to Home Assistant.
@@ -17,6 +21,14 @@ import android.util.Log
 class TimerListenerService : NotificationListenerService() {
 
     private lateinit var prefs: Prefs
+
+    /**
+     * Scope for delivering an event, cancelled when Android unbinds the service.
+     *
+     * SupervisorJob so one failed delivery does not tear down the scope and take later
+     * timers with it. The default dispatcher is fine: HaClient moves itself to IO.
+     */
+    private val scope = CoroutineScope(SupervisorJob())
 
     /**
      * Notification key -> the label and time we last forwarded for it.
@@ -51,6 +63,11 @@ class TimerListenerService : NotificationListenerService() {
         // The system keeps this service bound, so it is the natural owner of the pairing
         // server: once notification access is granted the tablet stays discoverable.
         BridgeServer.ensureRunning(this)
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
     }
 
     override fun onListenerConnected() {
@@ -135,8 +152,9 @@ class TimerListenerService : NotificationListenerService() {
 
         Log.i(TAG, "${match.kind.wireName}: name=${match.timerName} reason=${match.reason} kind=${match.kindReason}")
         val payload = Payload.build(snapshot, match, prefs.deviceName)
-        Delivery.send(this, payload) { status ->
-            EventLog.updateStatus(this, event.id, status)
+        scope.launch {
+            val status = Delivery.send(this@TimerListenerService, payload)
+            EventLog.updateStatus(this@TimerListenerService, event.id, status)
         }
     }
 

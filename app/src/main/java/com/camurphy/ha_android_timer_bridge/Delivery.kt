@@ -12,13 +12,10 @@ import org.json.JSONObject
  */
 object Delivery {
 
-    fun send(context: Context, payload: JSONObject, onStatus: (String) -> Unit) {
-        val target = target(context)
-        if (target == null) {
-            onStatus("not sent: not paired with Home Assistant")
-            return
-        }
-        HaClient.post(target, payload, onStatus)
+    /** Deliver the payload and return a short human-readable status. */
+    suspend fun send(context: Context, payload: JSONObject): String {
+        val target = target(context) ?: return "not sent: not paired with Home Assistant"
+        return HaClient.post(target, payload)
     }
 
     fun target(context: Context): String? {

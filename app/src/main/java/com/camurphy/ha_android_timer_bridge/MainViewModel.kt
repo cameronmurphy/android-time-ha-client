@@ -131,7 +131,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             timerName = match?.timerName,
             reason = "manual test",
         )
-        Delivery.send(app, payload) { status ->
+        viewModelScope.launch {
+            val status = Delivery.send(app, payload)
             EventLog.updateStatus(app, event.id, status)
             _messages.value = status
         }
@@ -142,7 +143,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val app = getApplication<Application>()
         val match = TimerMatcher.classify(event.snapshot, forwardEverything = true)
         val payload = Payload.build(event.snapshot, match, prefs.deviceName)
-        Delivery.send(app, payload) { status ->
+        viewModelScope.launch {
+            val status = Delivery.send(app, payload)
             EventLog.updateStatus(app, event.id, status)
             _messages.value = status
         }
