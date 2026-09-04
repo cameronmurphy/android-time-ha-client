@@ -8,13 +8,15 @@ on:
   workflow_run:
     workflows: ['Lint and test']
     types: [completed]
+    # Only tags. workflow_run has no tag filter, but a tag push reports the tag as its
+    # head_branch, so this matches v1.11 and not main — which keeps the run list free of
+    # skipped Build entries for every ordinary commit.
+    branches: ['v*']
 
 jobs:
   build:
     if: >-
-      ${{ !github.event.workflow_run
-      || (github.event.workflow_run.conclusion == 'success'
-      && startsWith(github.event.workflow_run.head_branch, 'v')) }}
+      ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     permissions:
