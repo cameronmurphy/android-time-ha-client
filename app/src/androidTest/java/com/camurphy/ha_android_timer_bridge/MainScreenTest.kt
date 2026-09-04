@@ -1,10 +1,13 @@
 package com.camurphy.ha_android_timer_bridge
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.camurphy.ha_android_timer_bridge.ui.AccessSection
+import com.camurphy.ha_android_timer_bridge.ui.OptionsSection
 import com.camurphy.ha_android_timer_bridge.ui.PairingSection
 import com.camurphy.ha_android_timer_bridge.ui.ScreenActions
 import com.camurphy.ha_android_timer_bridge.ui.ScreenCallbacks
@@ -73,5 +76,37 @@ class MainScreenTest {
             }
         }
         compose.onNodeWithText("Open notification access settings").assertIsDisplayed()
+    }
+
+    private val stored = Settings(
+        webhookUrl = "https://ha.example/hook",
+        deviceName = "Pixel Tablet",
+        packagesRaw = "com.google.android.deskclock",
+    )
+
+    private val savedForm = UiState(
+        deviceName = stored.deviceName,
+        packages = stored.packagesRaw,
+        webhookUrl = stored.webhookUrl,
+        forwardingEnabled = stored.enabled,
+        logAll = stored.logAll,
+        forwardEverything = stored.forwardEverything,
+        saved = stored,
+    )
+
+    @Test
+    fun save_is_not_offered_when_there_is_nothing_to_save() {
+        compose.setContent { TimeHaClientTheme { OptionsSection(savedForm, ScreenCallbacks()) } }
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+    }
+
+    @Test
+    fun save_becomes_available_once_something_is_edited() {
+        compose.setContent {
+            TimeHaClientTheme {
+                OptionsSection(savedForm.copy(deviceName = "Kitchen tablet"), ScreenCallbacks())
+            }
+        }
+        compose.onNodeWithText("Save").assertIsEnabled()
     }
 }

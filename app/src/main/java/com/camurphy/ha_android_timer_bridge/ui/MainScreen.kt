@@ -312,7 +312,9 @@ internal fun OptionsSection(state: UiState, callbacks: ScreenCallbacks) {
             modifier = Modifier.padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Button(onClick = callbacks.onSave) { Text(stringResource(R.string.save)) }
+            Button(onClick = callbacks.onSave, enabled = state.unsavedChanges) {
+                Text(stringResource(R.string.save))
+            }
             OutlinedButton(onClick = callbacks.onSendTest) {
                 Text(stringResource(R.string.send_test))
             }

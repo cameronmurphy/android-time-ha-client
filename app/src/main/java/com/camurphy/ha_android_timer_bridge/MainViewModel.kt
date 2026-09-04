@@ -29,7 +29,18 @@ data class UiState(
     val logAll: Boolean = true,
     val forwardEverything: Boolean = false,
     val events: List<LoggedEvent> = emptyList(),
-)
+    /** The settings as stored, so the form can tell whether it has anything to save. */
+    val saved: Settings = Settings(),
+) {
+    /** Does the form differ from what is stored? Drives whether Save is offered. */
+    val unsavedChanges: Boolean
+        get() = deviceName != saved.deviceName ||
+            packages != saved.packagesRaw ||
+            webhookUrl != saved.webhookUrl ||
+            forwardingEnabled != saved.enabled ||
+            logAll != saved.logAll ||
+            forwardEverything != saved.forwardEverything
+}
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -105,6 +116,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     forwardEverything = current.forwardEverything,
                 )
             }
+            refresh()
             _messages.value = app.getString(R.string.saved)
         }
     }
@@ -197,6 +209,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             logAll = SettingsStore.current.logAll,
             forwardEverything = SettingsStore.current.forwardEverything,
             events = EventLog.snapshot(app),
+            saved = SettingsStore.current,
         )
     }
 }
